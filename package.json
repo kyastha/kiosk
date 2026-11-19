@@ -1,0 +1,25 @@
+{
+  "name": "school-qr-printing-kiosk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "backend",
+    "frontend",
+    "print-agent"
+  ],
+  "scripts": {
+    "start": "node --env-file-if-exists=.env backend/src/server.js",
+    "dev": "npm run dev -w kiosk-frontend",
+    "build": "npm run build -w kiosk-frontend",
+    "test": "node --test tests/api.test.js backend/test/*.test.js print-agent/test/*.test.js",
+    "test:browser": "playwright test",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
+  }
+}

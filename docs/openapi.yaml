@@ -1,0 +1,480 @@
+openapi: 3.1.0
+info:
+  title: School QR Printing Kiosk
+  version: 1.0.0
+  description: >
+    Single-kiosk service. Amounts are integer NPR paisa. Browser mutations are same-origin.
+    Simulation events are TEST PAYMENT — NO REAL MONEY TRANSFERRED.
+servers:
+  - url: /
+x-websockets:
+  /ws/kiosk:
+    description: Same-origin public display feed. Sends order null or the latest kiosk order ID, payment status, print status and payment timestamp.
+  /ws/orders/{id}:
+    description: Same-origin private feed. The key query parameter is required. Sends the same JSON as GET /api/orders/{id}.
+paths:
+  /api/health:
+    get:
+      summary: Backend liveness
+      responses:
+        '200': { description: Ready }
+  /api/config:
+    get:
+      summary: Public settings and browser upload session
+      responses:
+        '200': { description: Settings, nullable drive configuration, maxCartFiles and onboardingUrl }
+  /api/kiosk/qr:
+    get:
+      summary: Permanent kiosk access QR for the onboarding URL
+      responses:
+        '200': { $ref: '#/components/responses/Png' }
+  /api/documents:
+    post:
+      summary: Convert and store a private document for this browser
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Document ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+        '413': { $ref: '#/components/responses/Error' }
+        '415': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/documents/{id}/preview:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      summary: Preview PDF with the same browser session that uploaded it
+      responses:
+        '200': { $ref: '#/components/responses/Pdf' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/quote:
+    post:
+      summary: Calculate a server-side price from a private document and print settings
+      requestBody: { $ref: '#/components/requestBodies/Checkout' }
+      responses:
+        '200':
+          description: Quote with normalized print settings, printablePages, pricePerPage and total
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/orders:
+    post:
+      summary: Snapshot the rate and create a pending payment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema: { type: string, pattern: '^[A-Za-z0-9-]{16,100}$' }
+      requestBody: { $ref: '#/components/requestBodies/Checkout' }
+      responses:
+        '201': { $ref: '#/components/responses/Order' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/Key'
+    get:
+      summary: Read order status by capability
+      responses:
+        '200': { $ref: '#/components/responses/Order' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/orders/{id}/receipt:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/Key'
+    get:
+      summary: Download the PDF receipt for a paid order
+      responses:
+        '200': { $ref: '#/components/responses/Pdf' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/payments/{reference}:
+    parameters:
+      - $ref: '#/components/parameters/Reference'
+    get:
+      summary: Simulator details
+      responses:
+        '200': { $ref: '#/components/responses/Payment' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/payments/{reference}/qr:
+    parameters:
+      - $ref: '#/components/parameters/Reference'
+    get:
+      summary: Order-specific payment QR
+      responses:
+        '200': { $ref: '#/components/responses/Png' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/payments/{reference}/simulate:
+    parameters:
+      - $ref: '#/components/parameters/Reference'
+    post:
+      summary: Request a simulation outcome and read the first verified terminal result
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              properties:
+                outcome: { enum: [success, failure] }
+      responses:
+        '200': { $ref: '#/components/responses/Payment' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/login:
+    post:
+      summary: Create an administrator session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Username and role with an HttpOnly administrator cookie }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /api/admin/session:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Read administrator session
+      responses:
+        '200': { description: Username and role }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/admin/logout:
+    post:
+      security: [{ adminCookie: [] }]
+      summary: Invalidate the administrator session
+      responses:
+        '200': { description: Signed out }
+  /api/admin/overview:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Order, test payment and print counters plus printer status
+      responses:
+        '200': { description: Counters and printer }
+  /api/admin/orders:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: List matching orders
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - { name: paymentStatus, in: query, schema: { $ref: '#/components/schemas/PaymentStatus' } }
+        - { name: printStatus, in: query, schema: { $ref: '#/components/schemas/PrintStatus' } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200': { description: Matching orders and total }
+  /api/admin/orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Order details including payment reference, attempt history and audit events
+      responses:
+        '200': { description: Order details }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/admin/reports:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Daily and monthly totals for orders, paid pages, copies, test amount and print failures
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200': { description: Grouped reports and aggregate totals }
+  /api/admin/reports.csv:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Export order and test payment rows
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: CSV download
+          content:
+            text/csv:
+              schema: { type: string }
+  /api/admin/settings:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Read kiosk settings
+      responses:
+        '200': { description: Settings }
+    patch:
+      security: [{ adminCookie: [] }]
+      summary: Update one or more kiosk settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                schoolName: { type: string, maxLength: 120 }
+                pricePerPage: { type: integer, minimum: 1, maximum: 100000 }
+                maxCopies: { type: integer, minimum: 1, maximum: 100 }
+                maxFileMb: { type: integer, minimum: 1, maximum: 50 }
+                maxPages: { type: integer, minimum: 1, maximum: 500 }
+                retentionHours: { type: integer, minimum: 1, maximum: 8760 }
+      responses:
+        '200': { description: Updated settings }
+        '400': { $ref: '#/components/responses/Error' }
+  /api/admin/printer:
+    get:
+      security: [{ adminCookie: [] }]
+      summary: Read printer status and queue configuration
+      responses:
+        '200': { description: Queue, configuredQueue, status, reasons, activeJobs and lastSeen }
+    patch:
+      security: [{ adminCookie: [] }]
+      summary: Set or clear a CUPS queue override
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [queue]
+              properties:
+                queue: { type: [string, 'null'] }
+      responses:
+        '200': { description: Updated printer configuration }
+  /api/admin/printer/test:
+    post:
+      security: [{ adminCookie: [] }]
+      summary: Queue an administrator test page
+      responses:
+        '201': { description: Test job ID }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/admin/jobs/{id}/retry:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      security: [{ adminCookie: [] }]
+      summary: Requeue a safe attempt by order ID
+      responses:
+        '200': { description: Updated order }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/admin/jobs/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      security: [{ adminCookie: [] }]
+      summary: Cancel an eligible job by order ID
+      responses:
+        '200': { description: Updated order }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/agent/heartbeat:
+    post:
+      security: [{ agentBearer: [] }]
+      summary: Report printer state and fetch configured queue override
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                queue: { type: [string, 'null'] }
+                status: { enum: [READY, BUSY, ERROR, OFFLINE, UNCONFIGURED] }
+                reasons: { type: array, items: { type: string } }
+                activeJobs: { type: integer, minimum: 0 }
+      responses:
+        '200': { description: Queue override and activeJobs count }
+  /api/agent/claim:
+    post:
+      security: [{ agentBearer: [] }]
+      summary: Recover an active attempt or claim the next authorized job
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recoveryOnly: { type: boolean }
+      responses:
+        '200': { description: Job or null. Job includes ID, attempt ID, document URL, print settings and submission state. }
+  /api/agent/jobs/{id}/document:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      security: [{ agentBearer: [] }]
+      summary: Download the PDF of an active authorized job
+      responses:
+        '200': { $ref: '#/components/responses/Pdf' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/agent/jobs/{id}/authorize:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      security: [{ agentBearer: [] }]
+      summary: Atomically reserve a single CUPS submission
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attemptId, queue]
+              properties:
+                attemptId: { type: string, format: uuid }
+                queue: { type: string }
+      responses:
+        '200': { description: An authorized boolean. A repeat returns false. }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/agent/jobs/{id}/status:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      security: [{ agentBearer: [] }]
+      summary: Record printer submission, completion or recoverable failure for the owning attempt
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attemptId, status]
+              properties:
+                attemptId: { type: string, format: uuid }
+                status: { enum: [SUBMITTED_TO_PRINTER, COMPLETED, COMPLETION_UNCONFIRMED, FAILED, RETRY_PENDING] }
+                cupsId: { type: [string, integer, 'null'] }
+                error: { type: [string, 'null'] }
+                retrySafe: { type: boolean }
+      responses:
+        '200': { description: Accepted }
+        '409': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    agentBearer: { type: http, scheme: bearer }
+    adminCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-kiosk_admin
+      description: Local HTTP uses kiosk_admin.
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    Key: { name: key, in: query, required: true, schema: { type: string } }
+    Reference: { name: reference, in: path, required: true, schema: { type: string } }
+    From: { name: from, in: query, description: Inclusive date in Asia/Kathmandu, schema: { type: string, format: date } }
+    To: { name: to, in: query, description: Inclusive date in Asia/Kathmandu, schema: { type: string, format: date } }
+  requestBodies:
+    Checkout:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [customerName, copies, orientation, scaling]
+            anyOf:
+              - required: [documentId]
+              - required: [items]
+            properties:
+              documentId: { type: string, format: uuid }
+              items:
+                type: array
+                minItems: 1
+                maxItems: 8
+                description: If supplied, replaces the top-level documentId and pageRanges.
+                items:
+                  type: object
+                  required: [documentId]
+                  properties:
+                    documentId: { type: string, format: uuid }
+                    pageRanges: { type: string }
+              customerName: { type: string, minLength: 1, maxLength: 100 }
+              copies: { type: integer, minimum: 1 }
+              orientation: { enum: [portrait, landscape] }
+              pageRanges: { type: string, description: Blank for all pages or comma-separated page ranges }
+              scaling: { enum: [fit, actual, custom] }
+              scalePercent: { type: [integer, 'null'], minimum: 25, maximum: 200 }
+              expectedTotal: { type: integer, description: Optional guard for a rate change between quote and checkout }
+              kiosk: { type: boolean, description: Associates a checkout from the onboarding QR with the kiosk display. }
+  schemas:
+    Document:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        fileName: { type: string }
+        pageCount: { type: integer }
+        previewUrl: { type: string }
+    PaymentStatus: { enum: [PENDING, TEST_PAID, FAILED] }
+    PrintStatus:
+      enum: [PENDING_PAYMENT, PAYMENT_FAILED, QUEUED, PROCESSING, SUBMITTED_TO_PRINTER, COMPLETED, COMPLETION_UNCONFIRMED, FAILED, RETRY_PENDING, CANCELLED]
+  responses:
+    Error:
+      description: Request could not be completed
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string }
+    Pdf:
+      description: PDF
+      content:
+        application/pdf:
+          schema: { type: string, format: binary }
+    Png:
+      description: QR PNG
+      content:
+        image/png:
+          schema: { type: string, format: binary }
+    Order:
+      description: Order and capabilities
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              customerName: { type: string }
+              fileName: { type: string }
+              printablePages: { type: integer }
+              copies: { type: integer }
+              pricePerPage: { type: integer }
+              total: { type: integer }
+              kiosk: { type: boolean }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    fileName: { type: string }
+                    printablePages: { type: integer }
+                    pageRanges: { type: string }
+                    total: { type: integer }
+              paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+              printStatus: { $ref: '#/components/schemas/PrintStatus' }
+              paymentUrl: { type: string }
+              paymentQrUrl: { type: string }
+              receiptUrl: { type: [string, 'null'] }
+              statusUrl: { type: string }
+    Payment:
+      description: Simulator response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              orderId: { type: string, format: uuid }
+              total: { type: integer }
+              schoolName: { type: string }
+              paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+              notice: { type: string }
