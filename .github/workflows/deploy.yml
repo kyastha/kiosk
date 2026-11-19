@@ -1,0 +1,74 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # SSH_KNOWN_HOSTS must contain the VPS host key verified through a trusted channel.
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?Set the SSH_PRIVATE_KEY repository secret}"
+          : "${SSH_KNOWN_HOSTS:?Set the SSH_KNOWN_HOSTS repository secret}"
+          umask 077
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/deploy_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/deploy_known_hosts"
+
+      # The VPS needs a repository clone, its production .env, Git access, and Docker Compose.
+      - name: Update application on VPS
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/school-kiosk' }}
+        run: |
+          set -euo pipefail
+          : "${SSH_HOST:?Set the SSH_HOST repository secret}"
+          : "${SSH_USER:?Set the SSH_USER repository secret}"
+          printf -v remote_command 'bash -se -- %q' "$DEPLOY_PATH"
+          ssh -i "$RUNNER_TEMP/deploy_key" \
+            -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/deploy_known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -- "$SSH_USER@$SSH_HOST" "$remote_command" <<'DEPLOY'
+          set -euo pipefail
+          cd -- "$1"
+          git diff --quiet
+          git diff --cached --quiet
+          git switch main
+          git pull --ff-only origin main
+          test -f .env
+          docker compose up -d --build --wait --wait-timeout 180 backend
+          DEPLOY
+
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/deploy_known_hosts"

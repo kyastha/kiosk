@@ -14,7 +14,7 @@ const cleanup = () => {
 };
 await cleanup();
 const timer = setInterval(cleanup, 60_000);
-const server = app.listen(config.port, config.host, () => console.log(`School kiosk listening on ${config.host}:${config.port}`));
+const server = app.listen(config.port, '0.0.0.0', () => console.log(\`School kiosk listening on 0.0.0.0:${config.port}\`));
 const live = attachLive(server, { db, config });
 server.requestTimeout = 90_000;
 server.headersTimeout = 15_000;
