@@ -94,16 +94,41 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(768);
   await page.screenshot({ path: info.outputPath('kiosk-payment-1366.png') });
 
-  const qrReference = (await paymentQr.getAttribute('src')).split('/')[3];
-  const scannedUrl = new URL('/pay/' + qrReference, config.onboardingUrl).href;
-  await phone.addInitScript((url) => {
-    window.BarcodeDetector = class { async detect() { return [{ rawValue: url }]; } };
-    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => new MediaStream() } });
-    HTMLMediaElement.prototype.play = async function () {};
-  }, scannedUrl);
-  await phone.getByRole('button', { name: 'Continue to pay' }).click();
+  const qrResponse = await context.request.get(await paymentQr.getAttribute('src'));
+  expect(qrResponse.ok()).toBeTruthy();
+  const paymentImage = await qrResponse.body();
+  const reviewUrl = phone.url();
+  const continueButton = phone.getByRole('button', { name: 'Continue to pay' });
+
+  const cancelledChooser = phone.waitForEvent('filechooser');
+  await continueButton.click();
+  const firstChooser = await cancelledChooser;
+  expect(await firstChooser.element().getAttribute('capture')).toBe('environment');
+  await expect(phone).toHaveURL(reviewUrl);
+  await expect(phone.getByLabel('Test PIN')).toHaveCount(0);
+  await expect(qr).toHaveCount(0);
+  await expect(paymentQr).toBeVisible();
+  await firstChooser.element().dispatchEvent('cancel');
+  await expect(continueButton).toBeEnabled();
+
+  const capturedChooser = phone.waitForEvent('filechooser');
+  await continueButton.click();
+  const chooser = await capturedChooser;
+  expect(await chooser.element().getAttribute('aria-label')).toBe('Capture payment QR');
+  expect(await chooser.element().getAttribute('capture')).toBe('environment');
+  expect(await chooser.element().getAttribute('accept')).toBe('image/*');
+  await expect(phone).toHaveURL(reviewUrl);
+  await expect(phone.getByLabel('Test PIN')).toHaveCount(0);
+  await chooser.setFiles({ name: 'payment-qr.png', mimeType: 'image/png', buffer: paymentImage });
   const simulator = phone;
-  await simulator.getByLabel('Test PIN').fill(await simulator.getByTestId('demo-pin').innerText());
+  await expect(simulator.getByLabel('Test PIN')).toBeVisible();
+  const pin = await simulator.getByTestId('demo-pin').innerText();
+  await simulator.getByLabel('Test PIN').fill(pin === '000000' ? '111111' : '000000');
+  await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
+  await expect(simulator.getByRole('alert')).toContainText('demo PIN');
+  await expect(qr).toHaveCount(0);
+  await expect(paymentQr).toBeVisible();
+  await simulator.getByLabel('Test PIN').fill(pin);
   await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment accepted' })).toBeVisible();
 

@@ -816,6 +816,10 @@ svg {
   display: grid;
   gap: 9px;
 }
+.native-payment-camera {
+  display: grid;
+  gap: 10px;
+}
 .demo-payment-instructions {
   display: grid;
   gap: 8px;

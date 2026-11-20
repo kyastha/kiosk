@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { api, dateTime, localLink, money, orderInfo, statusLabels, TEST_LABEL } from './api.js';
 import { useLiveSnapshot } from './live.js';
 import { PrintProgress } from './print-progress.jsx';
+import PaymentCamera from './payment-camera.jsx';
 import { Details, ErrorMessage, Footer, Header, Loading, Status } from './ui.jsx';
 
 function TestNotice() {
@@ -256,7 +257,7 @@ export function OrderStatus({ id, accessKey, online }) {
                   ? 'Track your job and save your receipt.'
                   : failed
                     ? 'This order will stay out of the print queue.'
-                    : 'Use the unique QR for this order or open the simulator here.'}
+                    : scannedOrder ? 'Continue to pay opens your camera to capture the kiosk payment QR.' : 'Use the unique QR for this order or open the simulator here.'}
               </p>
             </div>
             <div className="setup-grid">
@@ -291,7 +292,9 @@ export function OrderStatus({ id, accessKey, online }) {
                 )}
                 {!paid && !failed && (
                   <>
-                    {scannedOrder?.sessionId && <a className="button secondary full" href={'/scan?session=' + encodeURIComponent(scannedOrder.sessionId)}>Continue to pay</a>}
+                    {scannedOrder?.sessionId && (
+                      <PaymentCamera sessionId={scannedOrder.sessionId} paymentOrigin={new URL(order.paymentUrl).origin} online={online} />
+                    )}
                     <div className="payment-qr">
                       <img
                         src={order.paymentQrUrl}
@@ -301,7 +304,7 @@ export function OrderStatus({ id, accessKey, online }) {
                       />
                     </div>
                     <p className="muted qr-caption">
-                      Scan with another device, or open the simulator on this phone.
+                      {scannedOrder ? 'Capture the payment QR on the kiosk screen to continue.' : 'Scan with another device, or open the simulator on this phone.'}
                       {order.paymentExpiresAt && (
                         <>
                           <br />
@@ -309,14 +312,14 @@ export function OrderStatus({ id, accessKey, online }) {
                         </>
                       )}
                     </p>
-                    <a
+                    {!scannedOrder?.sessionId && <a
                       className="button primary full"
                       href={localLink(order.paymentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       Open payment simulator <ExternalLink size={17} aria-hidden="true" />
-                    </a>
+                    </a>}
                   </>
                 )}
               </section>

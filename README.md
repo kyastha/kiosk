@@ -2,7 +2,7 @@
 
 A self-service A4 printing kiosk for a school LAN. Students and teachers scan the permanent QR, upload files to a cart, review the PDFs and consolidated price, and open the simulator to test payment. A successful simulation issues one downloadable receipt and releases one job to the local print agent. The administrator can manage rates, orders, printer settings and CSV reports.
 
-**TEST PAYMENT — NO REAL MONEY TRANSFERRED**
+**TEST PAYMENT â€” NO REAL MONEY TRANSFERRED**
 
 ## Run locally
 
@@ -26,7 +26,7 @@ The payment simulator loads the amount from the order automatically. Enter the s
 ## What the MVP supports
 
 - PDF, JPG, JPEG, PNG, DOC, DOCX, XLS, XLSX, PPT, PPTX, and UTF-8 TXT. PDF preview shows the converted document before checkout. Password-protected or unsupported files and Office documents with active content or external resources can be rejected.
-- A4, grayscale, portrait or landscape, selected page ranges, copies, fit, actual size, and 25–200% scaling. The agent prepares the selected pages on A4 before submission. Actual size and large custom scales can crop content outside the sheet or its printable area.
+- A4, grayscale, portrait or landscape, selected page ranges, copies, fit, actual size, and 25â€“200% scaling. The agent prepares the selected pages on A4 before submission. Actual size and large custom scales can crop content outside the sheet or its printable area.
 - A cart holds up to eight files. Choose page ranges per file and apply one set of print settings across the cart. The backend combines the selected pages in cart order, calculates one total, and issues one itemized receipt.
 - WebSocket updates drive the monitor and the phone's print progress indicator. The phone falls back to status polling if its WebSocket drops.
 - Prices are in NPR, stored as integer paisa. Defaults are NPR 5 per selected page, 10 copies, 20 MiB, 100 pages, and 24-hour file retention. The order snapshots the rate. Simulated payments expire after 30 minutes.
@@ -61,6 +61,6 @@ Released under the [MIT license](LICENSE).
 
 ## Review and scan payment
 
-Selecting Review order creates the session's pending payment and displays its unique QR and stored total on the kiosk. Editing the reviewed settings cancels that payment reference before returning to setup. Select Scan kiosk payment QR on the phone to open the camera scanner, then enter the demo PIN in the payment simulator. The backend checks the session, reference, total and PIN before releasing one print job.
+Selecting Review order creates the session's pending payment and displays its unique QR and stored total on the kiosk. Editing the reviewed settings cancels that payment reference before returning to setup. Select Continue to pay on the phone to open rear-camera capture. Take a clear photo of the kiosk payment QR; the app reads it locally, verifies the checkout session, then opens the demo PIN page. The backend checks the session, reference, total and PIN before releasing one print job.
 
-Continue to pay opens the scanner and requests camera access automatically. HTTPS and camera permission are required. A portable QR decoder supports browsers without the native BarcodeDetector API. A payment-link field remains available if camera access is denied.
+Continue to pay requests native image capture directly from the button click using capture="environment". The browser and operating system choose whether to show the camera or a photo picker. This captures a QR photo; a web page cannot guarantee launch of a standalone OS QR-scanner app. The Use live scanner option remains available for browsers where camera capture is inconvenient. Camera photos stay on the device. HTTPS and permission are required for live scanning.

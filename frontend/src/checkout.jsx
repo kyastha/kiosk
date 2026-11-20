@@ -16,6 +16,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api, localLink, money, orderInfo } from './api.js';
 import { Details, ErrorMessage, Footer, Header, Loading } from './ui.jsx';
 import { useKioskActivity } from './activity.js';
+import PaymentCamera from './payment-camera.jsx';
 import './cart.css';
 
 const Preview = lazy(() => import('./preview.jsx'));
@@ -461,18 +462,9 @@ function SettingsStep({
     } finally { setCreating(false); }
   }
 
-  function continuePayment(event) {
-    event.preventDefault();
-    if (!reviewedOrder) return;
-    activity?.complete();
-    window.location.assign(reviewedOrder.sessionId
-      ? '/scan?session=' + encodeURIComponent(reviewedOrder.sessionId)
-      : localLink(reviewedOrder.statusUrl));
-  }
-
   if (review) {
     return (
-      <form className="card upload-card review-card" onSubmit={continuePayment}>
+      <section className="card upload-card review-card">
         <button className="text-button" type="button" onClick={editReview} disabled={creating}>
           <ChevronLeft size={18} aria-hidden="true" /> Edit settings
         </button>
@@ -506,11 +498,14 @@ function SettingsStep({
         )}
         {!online && <p className="muted">Reconnect to continue to payment.</p>}
         <ErrorMessage message={error} />
-        <button className="button primary full" type="submit" disabled={creating || !reviewedOrder || !online}>
-          {creating ? 'Creating order…' : 'Continue to payment'}
-          <ArrowRight size={19} aria-hidden="true" />
-        </button>
-      </form>
+        {reviewedOrder?.sessionId ? (
+          <PaymentCamera key={reviewedOrder.id} sessionId={reviewedOrder.sessionId}
+            paymentOrigin={new URL(reviewedOrder.paymentUrl).origin} online={online && !creating}
+            onVerified={() => activity?.complete()} />
+        ) : (
+          <a className="button primary full" href={reviewedOrder && localLink(reviewedOrder.statusUrl)}>View order</a>
+        )}
+      </section>
     );
   }
 
@@ -668,7 +663,7 @@ function SettingsStep({
           )}
           {canQuote && !matchingQuote && <Loading>Calculating price…</Loading>}
           <button className="button primary full" type="submit" disabled={!quote || creating}>
-            {creating ? 'Preparing payment QR�' : 'Review order'}
+            {creating ? 'Preparing payment QR…' : 'Review order'}
             <ArrowRight size={19} aria-hidden="true" />
           </button>
         </form>

@@ -30,3 +30,5 @@ Container startup, the school's physical printer and phones, and live Google aut
 7. Verify that a second browser cannot open another user's preview or receipt without its capability. Confirm that a new student does not need admin or Google credentials for local upload.
 8. If Google Picker is enabled, select a file with an allowed Google test account and verify the resulting preview. Check permission denial and disconnected internet paths.
 9. Export the administrator report. Confirm it labels transactions as tests. Perform a test backup and restore before opening the kiosk to regular use.
+
+For native capture, verify on physical Android and iPhone devices. Browser tests supply a real QR image through the capture input and check its capture attributes, decoding, backend validation, cancellation and payment states. Automated browser emulation does not verify the native camera application itself.

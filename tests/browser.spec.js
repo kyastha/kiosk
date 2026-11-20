@@ -15,7 +15,7 @@ const fixture = {
 };
 
 async function createOrder(page, name) {
-  await page.goto('/');
+  await page.goto('/?kiosk=1');
   await expect(page.getByRole('heading', { name: 'Print from your phone.' })).toBeVisible();
   await page.getByLabel('Your name').fill(name);
   await page.getByLabel('Document file').setInputFiles(fixture);
@@ -31,8 +31,21 @@ async function createOrder(page, name) {
   await expect(page.getByRole('heading', { name: 'Review your order' })).toBeVisible();
   await expect(page.getByText('Landscape', { exact: true })).toBeVisible();
   await expect(page.getByText('NPR 10', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-reviewed-order'))?.statusUrl))
+    .toBeTruthy();
   await page.goto(await page.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-reviewed-order')).statusUrl));
   await expect(page.getByRole('heading', { name: 'Complete test payment' })).toBeVisible();
+}
+
+async function capturePaymentQr(page) {
+  const paymentQr = page.getByRole('img', { name: 'Payment QR code for this order' });
+  const response = await page.request.get(await paymentQr.getAttribute('src'));
+  expect(response.ok()).toBeTruthy();
+  const chooserOpened = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Continue to pay' }).click();
+  const chooser = await chooserOpened;
+  await chooser.setFiles({ name: 'payment-qr.png', mimeType: 'image/png', buffer: await response.body() });
+  await expect(page.getByLabel('Test PIN')).toBeVisible();
 }
 
 test('customer workflow renders the PDF, applies settings and releases a paid job', async ({
@@ -50,21 +63,24 @@ test('customer workflow renders the PDF, applies settings and releases a paid jo
   expect(qrPath).not.toBe('/api/kiosk/qr');
   expect((await request.get(qrPath)).ok()).toBeTruthy();
 
-  const popup = page.waitForEvent('popup');
-  await page.getByRole('link', { name: 'Open payment simulator' }).click();
-  const simulator = await popup;
+  const statusUrl = new URL(page.url());
+  const statusApi = '/api' + statusUrl.pathname + statusUrl.search;
+  await capturePaymentQr(page);
+  const simulator = page;
   await expect(simulator.getByText(warning, { exact: true })).toBeVisible();
   const demoPin = await simulator.getByTestId('demo-pin').innerText();
   const wrongPin = demoPin === '000000' ? '111111' : '000000';
   await simulator.getByLabel('Test PIN').fill(wrongPin);
   await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
   await expect(simulator.getByRole('alert')).toContainText('demo PIN');
-  await expect(page.getByRole('heading', { name: 'Complete test payment' })).toBeVisible();
+  await expect(simulator.getByLabel('Test PIN')).toBeVisible();
+  const pendingOrder = await page.request.get(statusApi);
+  expect(pendingOrder.ok()).toBeTruthy();
+  expect((await pendingOrder.json()).paymentStatus).toBe('PENDING');
   await simulator.getByLabel('Test PIN').fill(demoPin);
   await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment accepted' })).toBeVisible();
-  await simulator.close();
-  await page.bringToFront();
+  await simulator.getByRole('link', { name: 'Track print order' }).click();
 
   await expect(page.getByRole('heading', { name: 'Your print order' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('list', { name: 'Print progress' }).locator('[aria-current="step"]')).toHaveText(
@@ -101,13 +117,11 @@ test('file errors and offline state are visible on a phone-size layout', async (
 test('failed simulation keeps the order out of the print queue', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Payment failure uses the same browser-independent route.');
   await createOrder(page, 'Failure example');
-  const popup = page.waitForEvent('popup');
-  await page.getByRole('link', { name: 'Open payment simulator' }).click();
-  const simulator = await popup;
+  await capturePaymentQr(page);
+  const simulator = page;
   await simulator.getByRole('button', { name: 'Payment Failed' }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment failed' })).toBeVisible();
-  await simulator.close();
-  await page.bringToFront();
+  await simulator.getByRole('link', { name: 'Track print order' }).click();
   await expect(page.getByRole('heading', { name: 'Payment failed' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download PDF receipt' })).toHaveCount(0);
 });
