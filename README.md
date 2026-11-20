@@ -19,7 +19,7 @@ Open [the kiosk](http://localhost:3000/) or [the administration dashboard](http:
 
 The local server also accepts [127.0.0.1 on port 3000](http://127.0.0.1:3000/). Use the address in PUBLIC_ORIGIN when accessing a deployed kiosk.
 
-On the 14-inch laptop display, open [the kiosk display](http://localhost:3000/kiosk) and select **Fullscreen**. Its interactive journey map follows scanning, file preparation, settings, review and payment. The permanent access QR stays visible. At checkout a separate payment QR shows the exact order total. After payment confirmation the screen welcomes the next customer while retaining a compact live print status. Open [the printing display](http://localhost:3000/printer) for a dedicated status view.
+On the 14-inch laptop display, open [the kiosk display](http://localhost:3000/kiosk) and select **Fullscreen**. Its interactive journey map follows scanning, file preparation, settings, review and payment. At checkout the payment QR replaces the access QR and shows the exact order total. The access QR returns after verified payment. After payment confirmation the screen welcomes the next customer while retaining a compact live print status. Open [the printing display](http://localhost:3000/printer) for a dedicated status view.
 
 The payment simulator loads the amount from the order automatically. Enter the six-digit demo PIN shown on that test payment page and select Pay. Five incorrect PIN attempts lock that payment. A successful test payment releases one print job and one receipt. To scan from a separate phone, configure PUBLIC_ORIGIN to the HTTPS address reachable from the school network.
 
@@ -63,4 +63,4 @@ Released under the [MIT license](LICENSE).
 
 Selecting Review order creates the session's pending payment and displays its unique QR and stored total on the kiosk. Editing the reviewed settings cancels that payment reference before returning to setup. Select Scan kiosk payment QR on the phone to open the camera scanner, then enter the demo PIN in the payment simulator. The backend checks the session, reference, total and PIN before releasing one print job.
 
-The scanner requires HTTPS, camera permission and a browser with the native BarcodeDetector QR API. Browsers without that API can use their phone camera to copy the QR link and paste it into the scanner's Payment QR link field. Cross-browser camera decoding remains dependent on installing a portable decoder.
+Continue to pay opens the scanner and requests camera access automatically. HTTPS and camera permission are required. A portable QR decoder supports browsers without the native BarcodeDetector API. A payment-link field remains available if camera access is denied.

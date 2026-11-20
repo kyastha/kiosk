@@ -29,6 +29,9 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
     if (count === 19) throw new Error('Browser fixtures left more than 20 queued jobs.');
   }
 
+  const pending = await (await context.request.get('/api/admin/orders?paymentStatus=PENDING&limit=100')).json();
+  for (const order of pending.orders) await context.request.post('/api/payments/' + order.paymentReference + '/simulate', { data: { outcome: 'failure' } });
+  await context.request.post('/api/kiosk/session', { data: {} });
   const monitorSocket = page.waitForEvent('websocket', {
     predicate: socket => new URL(socket.url()).pathname === '/ws/kiosk',
   });
@@ -38,7 +41,7 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   const map = page.getByRole('list', { name: 'Print journey' });
   await expect(qr).toBeVisible();
   await expect.poll(() => qr.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Ready to scan' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Phone connected' })).toBeVisible();
   await expect(page.getByText('Live updates', { exact: true })).toBeVisible();
   await map.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Step details' })).toContainText('Preview each file');
@@ -55,6 +58,7 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   const onboarding = new URL(config.onboardingUrl);
   await phone.goto(onboarding.pathname + onboarding.search);
   await expect(page.getByRole('heading', { name: 'Phone connected' })).toBeVisible();
+  await expect.poll(() => phone.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-checkout-session'))?.sessionId)).toBeTruthy();
   const session = await phone.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-checkout-session')));
   await phone.reload();
   await expect(phone.getByRole('heading', { name: 'Start a print order' })).toBeVisible();
@@ -79,19 +83,12 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   await phone.getByRole('button', { name: 'Review order' }).click();
 
   await expect(page.getByRole('img', { name: 'Scan this QR code for the current test payment' })).toBeVisible();
-  const orderSocket = phone.waitForEvent('websocket', {
-    predicate: socket => new URL(socket.url()).pathname.startsWith('/ws/orders/'),
-  });
-  await phone.getByRole('button', { name: 'Continue to payment' }).click();
-  await orderSocket;
-
   await expect(page.getByRole('heading', { name: 'Checkout in progress' })).toBeVisible();
   const paymentQr = page.getByRole('img', { name: 'Scan this QR code for the current test payment' });
   await expect(paymentQr).toBeVisible();
   await expect.poll(() => paymentQr.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   await expect(page.getByRole('region', { name: 'Order test payment QR' })).toContainText('NPR 5');
-  expect(await paymentQr.getAttribute('src')).not.toBe(await qr.getAttribute('src'));
-  await expect(qr).toBeVisible();
+  await expect(qr).toHaveCount(0);
   await expect(page.getByText('Private kiosk customer')).toHaveCount(0);
   await expect(page.getByText('private-kiosk-fixture.pdf')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(768);
@@ -104,8 +101,7 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => new MediaStream() } });
     HTMLMediaElement.prototype.play = async function () {};
   }, scannedUrl);
-  await phone.getByRole('link', { name: 'Scan kiosk payment QR' }).click();
-  await phone.getByRole('button', { name: 'Start camera' }).click();
+  await phone.getByRole('button', { name: 'Continue to pay' }).click();
   const simulator = phone;
   await simulator.getByLabel('Test PIN').fill(await simulator.getByTestId('demo-pin').innerText());
   await simulator.getByRole('button', { name: /^Pay NPR/ }).click();

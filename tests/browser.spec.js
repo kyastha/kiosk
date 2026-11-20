@@ -31,7 +31,7 @@ async function createOrder(page, name) {
   await expect(page.getByRole('heading', { name: 'Review your order' })).toBeVisible();
   await expect(page.getByText('Landscape', { exact: true })).toBeVisible();
   await expect(page.getByText('NPR 10', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Continue to payment' }).click();
+  await page.goto(await page.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-reviewed-order')).statusUrl));
   await expect(page.getByRole('heading', { name: 'Complete test payment' })).toBeVisible();
 }
 
@@ -137,7 +137,7 @@ test('customer reviews multiple files with individual page ranges and one paymen
   await expect(files.getByRole('listitem').filter({ hasText: 'class-notes.pdf' })).toContainText('All pages');
   await expect(files.getByRole('listitem').filter({ hasText: 'worksheet.pdf' })).toContainText('Pages 2');
   await expect(page.getByText('NPR 30', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Continue to payment' }).click();
+  await page.goto(await page.evaluate(() => JSON.parse(sessionStorage.getItem('kiosk-reviewed-order')).statusUrl));
   await expect(page.getByRole('img', { name: 'Payment QR code for this order' })).toHaveCount(1);
 });
 

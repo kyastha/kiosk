@@ -92,14 +92,15 @@ test('a bound order exposes only its payment QR and safe summary on the shared k
   assert.equal(expired.printingOrder, null);
 });
 
-test('a newer scan suppresses another phone payment while preserving safe printer progress', t => {
+test('a pending payment stays on screen until confirmed despite a newer scan', t => {
   const { db, ownerHash, order, provider } = fixture(t);
   const first = createKioskSession(db, ownerHash);
   const original = order({ sessionId: first.sessionId });
   const next = createKioskSession(db, hash('second browser'));
   const snapshot = kioskSnapshot(db);
-  assert.equal(snapshot.activity.sessionId, next.sessionId);
-  assert.equal(snapshot.order, null);
+  assert.equal(snapshot.activity.sessionId, first.sessionId);
+  assert.equal(snapshot.order.id, original.id);
+  assert.equal(snapshot.order.paymentQrUrl, original.paymentQrUrl);
   const payment = db.prepare('SELECT * FROM payments WHERE order_id = ?').get(original.id);
   applyPaymentEvent(db, provider, payment, provider.simulate(payment, 'success'));
   const withPrint = kioskSnapshot(db);

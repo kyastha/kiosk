@@ -107,7 +107,7 @@
   gap: 14px;
   min-width: 0;
 }
-.kiosk-qr-grid[data-payment='true'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kiosk-qr-grid[data-payment='true'] { grid-template-columns: 1fr; }
 .kiosk-qr-card {
   display: flex;
   flex-direction: column;
@@ -248,7 +248,7 @@
   .kiosk-content { grid-template-columns: 1fr; gap: 22px; }
   .kiosk-copy h1 br { display: none; }
   .kiosk-qr-grid { grid-row: 1; }
-  .kiosk-qr-grid[data-payment='true'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kiosk-qr-grid[data-payment='true'] { grid-template-columns: 1fr; }
   .kiosk-qr-card img { width: min(100%, 260px, 40vh); }
   .kiosk-map { gap: 2px; }
   .kiosk-map button { font-size: .65rem; }

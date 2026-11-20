@@ -465,7 +465,9 @@ function SettingsStep({
     event.preventDefault();
     if (!reviewedOrder) return;
     activity?.complete();
-    window.location.assign(localLink(reviewedOrder.statusUrl));
+    window.location.assign(reviewedOrder.sessionId
+      ? '/scan?session=' + encodeURIComponent(reviewedOrder.sessionId)
+      : localLink(reviewedOrder.statusUrl));
   }
 
   if (review) {
@@ -504,8 +506,7 @@ function SettingsStep({
         )}
         {!online && <p className="muted">Reconnect to continue to payment.</p>}
         <ErrorMessage message={error} />
-        {reviewedOrder?.sessionId && <a className="button primary full" href={'/scan?session=' + encodeURIComponent(reviewedOrder.sessionId)}>Scan kiosk payment QR</a>}
-        <button className="button secondary full" type="submit" disabled={creating || !reviewedOrder || !online}>
+        <button className="button primary full" type="submit" disabled={creating || !reviewedOrder || !online}>
           {creating ? 'Creating order…' : 'Continue to payment'}
           <ArrowRight size={19} aria-hidden="true" />
         </button>
@@ -686,7 +687,7 @@ export function Checkout({ online }) {
   const [ranges, setRanges] = useState({});
   const [attempt, setAttempt] = useState(0);
   const kiosk = new URLSearchParams(window.location.search).get('kiosk') === '1';
-  const activity = useKioskActivity(kiosk && Boolean(config), online);
+  const activity = useKioskActivity(Boolean(config), online);
 
   useEffect(() => {
     if (!online) return;

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { decodePaymentUrl } from '../../frontend/src/payment-scan.js';
+import QRCode from 'qrcode';
+import sharp from 'sharp';
+import { decodeFrame, decodePaymentUrl } from '../../frontend/src/payment-scan.js';
 
 const origin = 'https://print.example.edu.np';
 const reference = 'a'.repeat(43);
@@ -44,3 +46,11 @@ test('scanner rejects foreign origins, credentials and paths that change payment
   assert.throws(() => decodePaymentUrl(paymentUrl, origin + '/'), /Scan a payment QR/);
 });
 
+
+test('portable camera decoder reads an actual payment QR image', async () => {
+  const png = await QRCode.toBuffer(paymentUrl, { width: 384, margin: 4 });
+  const {data,info} = await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const frame = new Uint8ClampedArray(data.buffer,data.byteOffset,data.byteLength);
+  assert.equal(decodeFrame(frame,info.width,info.height),paymentUrl);
+  assert.equal(decodeFrame(null,384,384),null);
+});

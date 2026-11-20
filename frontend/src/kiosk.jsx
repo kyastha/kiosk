@@ -135,8 +135,8 @@ export default function Kiosk({ online }) {
   const [fullscreenError, setFullscreenError] = useState(false);
   const [qrError, setQrError] = useState(false);
   const display = useRef(null);
-  const activity = connected ? value?.activity : null;
-  const order = connected ? value?.order : null;
+  const activity = value?.activity;
+  const order = value?.order;
   const phase = useDisplayPhase(activity, order);
   const [title, description, Icon] = displayStates[phase];
   const pendingPayment = phase === 'pending' && order?.paymentQrUrl && Number.isSafeInteger(order.total);
@@ -199,7 +199,7 @@ export default function Kiosk({ online }) {
           <PrintingStatus order={value?.printingOrder} connected={connected} />
         </section>
         <div className="kiosk-qr-grid" data-payment={Boolean(pendingPayment)}>
-          <section className="kiosk-qr-card" aria-label="Permanent kiosk access QR">
+          {!pendingPayment && <section className="kiosk-qr-card" aria-label="Permanent kiosk access QR">
             <div className="kiosk-qr-tag"><Smartphone size={15} aria-hidden="true" /> Start here · Access QR</div>
             <img
               src="/api/kiosk/qr"
@@ -211,7 +211,7 @@ export default function Kiosk({ online }) {
             />
             {qrError ? <p role="status">The QR could not load. Refresh to try again.</p> : <p>Open your phone camera to begin</p>}
             {config?.onboardingUrl && <small>{new URL(config.onboardingUrl).host}</small>}
-          </section>
+          </section>}
           {pendingPayment && <PaymentQr key={order.id} order={order} />}
         </div>
       </div>

@@ -291,7 +291,7 @@ export function OrderStatus({ id, accessKey, online }) {
                 )}
                 {!paid && !failed && (
                   <>
-                    {scannedOrder?.sessionId && <a className="button secondary full" href={'/scan?session=' + encodeURIComponent(scannedOrder.sessionId)}>Scan kiosk payment QR</a>}
+                    {scannedOrder?.sessionId && <a className="button secondary full" href={'/scan?session=' + encodeURIComponent(scannedOrder.sessionId)}>Continue to pay</a>}
                     <div className="payment-qr">
                       <img
                         src={order.paymentQrUrl}

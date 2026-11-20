@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, localLink } from './api.js';
-import { decodePaymentUrl } from './payment-scan.js';
+import { decodeFrame, decodePaymentUrl } from './payment-scan.js';
 import { ErrorMessage, Header } from './ui.jsx';
 import './scanner.css';
 
@@ -16,6 +16,7 @@ export default function Scanner({ online }) {
   const generation = useRef(0);
   const timer = useRef(null);
   const active = useRef(true);
+  const autoStarted = useRef(false);
   let returnUrl = '/';
   try {
     const record = JSON.parse(sessionStorage.getItem('kiosk-reviewed-order'));
@@ -70,22 +71,33 @@ export default function Scanner({ online }) {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
         throw new Error('Camera access needs HTTPS and camera permission. You can paste the payment QR link below.');
       }
-      if (!window.BarcodeDetector) {
-        throw new Error('Camera QR scanning is unavailable in this browser. Use your phone camera to copy the payment link and paste it below.');
-      }
-      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      let detector;
+      try { if (window.BarcodeDetector) detector = new window.BarcodeDetector({ formats: ['qr_code'] }); }
+      catch { /* The portable decoder handles browsers without native QR support. */ }
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d', { willReadFrequently: true });
       const camera = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } });
       if (generation.current !== attempt) { camera.getTracks().forEach(track => track.stop()); return; }
       stream.current = camera;
       video.current.srcObject = camera;
       await video.current.play();
+      if (generation.current !== attempt || !active.current) return;
       setRunning(true);
       async function scan() {
         if (generation.current !== attempt) return;
         try {
-          const results = await detector.detect(video.current);
+          let decoded;
+          if (detector) {
+            decoded = (await detector.detect(video.current))[0]?.rawValue;
+          } else if (video.current.videoWidth && video.current.videoHeight) {
+            const scale = Math.min(1, 960 / video.current.videoWidth, 960 / video.current.videoHeight);
+            canvas.width = Math.max(1, Math.round(video.current.videoWidth * scale));
+            canvas.height = Math.max(1, Math.round(video.current.videoHeight * scale));
+            context.drawImage(video.current, 0, 0, canvas.width, canvas.height);
+            decoded = decodeFrame(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+          }
           if (generation.current !== attempt) return;
-          if (results[0]?.rawValue) { await openPayment(results[0].rawValue); return; }
+          if (decoded) { await openPayment(decoded); return; }
           timer.current = setTimeout(scan, 250);
         } catch {
           if (generation.current === attempt) { stop(); setError('The camera could not read the QR. Try again or paste its link.'); }
@@ -99,6 +111,12 @@ export default function Scanner({ online }) {
       }
     }
   }
+
+  useEffect(() => {
+    if (!config || !online || !sessionId || autoStarted.current) return;
+    autoStarted.current = true;
+    start();
+  }, [config, online, sessionId]);
 
   return <>
     <Header schoolName={config?.schoolName} />

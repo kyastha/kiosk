@@ -119,8 +119,10 @@ export function kioskSnapshot(db, now = Date.now()) {
     WHERE (o.id IS NULL AND s.updated_at > ?) OR (o.payment_status = 'PENDING' AND o.created_at > ?)
       OR (o.payment_status = 'TEST_PAID' AND o.print_status IN ${activePrint})
       OR max(o.updated_at, p.updated_at) > ?
-    ORDER BY s.created_at DESC, s.rowid DESC LIMIT 1`)
-    .get(now - activityLifetime, now - paymentLifetime, now - kioskResultLifetime);
+    ORDER BY CASE WHEN o.payment_status = 'PENDING' AND o.created_at > ? THEN 0 ELSE 1 END,
+      CASE WHEN o.payment_status = 'PENDING' THEN o.created_at END ASC,
+      s.created_at DESC, s.rowid DESC LIMIT 1`)
+    .get(now - activityLifetime, now - paymentLifetime, now - kioskResultLifetime, now - paymentLifetime);
   let order = publicOrder(session, true, now);
   let activity = null;
   if (session) {

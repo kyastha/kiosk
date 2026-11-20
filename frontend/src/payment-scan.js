@@ -19,3 +19,11 @@ export function decodePaymentUrl(value, origin) {
   return { reference: match[1] };
 }
 
+export function decodeFrame(data, width, height) {
+  if (!(data instanceof Uint8ClampedArray) || !Number.isInteger(width) || !Number.isInteger(height) ||
+      width < 1 || height < 1 || width * height > 1920 * 1080 || data.length !== width * height * 4) return null;
+  return jsQR(data, width, height, { inversionAttempts: 'attemptBoth' })?.data || null;
+}
+
+import jsQR from 'jsqr';
+
