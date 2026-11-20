@@ -60,6 +60,7 @@ The Picker requests the drive.file scope. The token remains in browser memory an
 
 | Symptom | Check |
 | --- | --- |
+| Backend exits with `APP_SECRET must contain at least 32 characters` or the same error for `AGENT_TOKEN` | In the project root, set both values in `.env` to different random secrets of at least 32 characters. Generate each with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Keep `APP_SECRET` unchanged after deployment. Start the PM2 process with `npm start` from the project root so Node loads `.env`; a process that runs `backend/src/server.js` directly does not load it automatically. Restart the process after updating its configuration. |
 | Phone cannot open the QR URL | Check that school Wi-Fi allows access to the kiosk, DNS resolves to its LAN IP, and the certificate is trusted. Confirm the printed sign targets PUBLIC_ORIGIN. |
 | Office conversion unavailable or times out | Check soffice, container memory, and available disk. Try a PDF exported by the user if the original document requires unsupported fonts or features. |
 | Paid job stays queued | Check agent and API health, configured queue, service token, and printer status. A queued order survives backend and kiosk restarts. |

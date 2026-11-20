@@ -31,7 +31,7 @@ export function loadConfig(env = process.env) {
   for (const directory of [storage, documents, workRoot]) mkdirSync(directory, { recursive: true, mode: 0o700 });
   return {
     publicOrigin: publicUrl.origin, localOrigins, secure, appSecret: env.APP_SECRET, agentToken: env.AGENT_TOKEN,
-    storage, documents, workRoot, host: env.HOST || '127.0.0.1', port: Number(env.PORT || 3000),
+    storage, documents, workRoot, host: env.HOST || '0.0.0.0', port: Number(env.PORT || 3000),
     proxy, frontendDist: resolve(env.FRONTEND_DIST || './frontend/dist'),
     schoolName: env.SCHOOL_NAME?.trim().slice(0, 120) || 'School Printing Service',
     adminUsername: env.ADMIN_USERNAME || 'admin', adminPassword: env.ADMIN_PASSWORD, receiptFont: env.RECEIPT_FONT,
