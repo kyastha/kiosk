@@ -15,7 +15,7 @@ const displayStates = {
   UPLOADING: ['Preparing your files', 'The kiosk is preparing PDF previews.', Files],
   SETTINGS: ['Choosing print settings', 'Check the preview, pages and number of copies on your phone.', Settings2],
   REVIEW: ['Reviewing the order', 'Confirm the selected pages and exact total on your phone.', ClipboardCheck],
-  pending: ['Checkout in progress', 'Tap Continue to pay on your phone, then photograph this payment QR.', Smartphone],
+  pending: ['Checkout in progress', 'Tap Continue to pay on your phone, then point the live camera scanner at this QR.', Smartphone],
   paid: ['Test payment accepted', 'Your job is in the print queue. Track it on your phone.', Check],
   failed: ['Test payment ended', 'Scan again to start a new print order.', CircleX],
 };
@@ -24,7 +24,7 @@ const steps = [
   ['Files', Files, 'Enter your name and select up to eight files on your phone.'],
   ['Settings', Settings2, 'Preview each file and choose pages, copies, orientation and scaling.'],
   ['Review', ClipboardCheck, 'Check every file and the total price before continuing.'],
-  ['Test payment', QrCode, 'Continue to pay opens the camera. Photograph the payment QR, then enter the demo PIN on your phone.'],
+  ['Test payment', QrCode, 'Continue to pay opens the live camera scanner. Point it at the payment QR, then enter the demo PIN on your phone.'],
   ['Printing', Printer, 'Follow the print queue and collect your pages when the printer reports completion.'],
 ];
 const journeyStages = { SCANNED: 0, SELECTING: 1, UPLOADING: 1, SETTINGS: 2, REVIEW: 3, pending: 4, paid: 5, failed: 4 };

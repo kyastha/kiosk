@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Camera,
   CheckCircle2,
   CircleX,
   Download,
@@ -13,7 +14,6 @@ import { useEffect, useState } from 'react';
 import { api, dateTime, localLink, money, orderInfo, statusLabels, TEST_LABEL } from './api.js';
 import { useLiveSnapshot } from './live.js';
 import { PrintProgress } from './print-progress.jsx';
-import PaymentCamera from './payment-camera.jsx';
 import { Details, ErrorMessage, Footer, Header, Loading, Status } from './ui.jsx';
 
 function TestNotice() {
@@ -257,7 +257,7 @@ export function OrderStatus({ id, accessKey, online }) {
                   ? 'Track your job and save your receipt.'
                   : failed
                     ? 'This order will stay out of the print queue.'
-                    : scannedOrder ? 'Continue to pay opens your camera to capture the kiosk payment QR.' : 'Use the unique QR for this order or open the simulator here.'}
+                    : scannedOrder ? 'Continue to pay opens the live camera scanner for the kiosk payment QR.' : 'Use the unique QR for this order or open the simulator here.'}
               </p>
             </div>
             <div className="setup-grid">
@@ -293,7 +293,14 @@ export function OrderStatus({ id, accessKey, online }) {
                 {!paid && !failed && (
                   <>
                     {scannedOrder?.sessionId && (
-                      <PaymentCamera sessionId={scannedOrder.sessionId} paymentOrigin={new URL(order.paymentUrl).origin} online={online} />
+                      <button
+                        type="button"
+                        className="button primary full"
+                        disabled={!online}
+                        onClick={() => window.location.assign('/scan?session=' + encodeURIComponent(scannedOrder.sessionId))}
+                      >
+                        <Camera size={19} aria-hidden="true" /> Continue to pay
+                      </button>
                     )}
                     <div className="payment-qr">
                       <img
@@ -304,7 +311,7 @@ export function OrderStatus({ id, accessKey, online }) {
                       />
                     </div>
                     <p className="muted qr-caption">
-                      {scannedOrder ? 'Capture the payment QR on the kiosk screen to continue.' : 'Scan with another device, or open the simulator on this phone.'}
+                      {scannedOrder ? 'Point the live camera scanner at the payment QR on the kiosk screen.' : 'Scan with another device, or open the simulator on this phone.'}
                       {order.paymentExpiresAt && (
                         <>
                           <br />

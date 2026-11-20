@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { installCamera, showCameraQr, startPaymentScanner } from './camera-fixture.js';
+
+test.beforeEach(async ({ context }) => installCamera(context));
 
 const warning = 'TEST PAYMENT — NO REAL MONEY TRANSFERRED';
 const sample = await PDFDocument.create();
@@ -37,14 +40,20 @@ async function createOrder(page, name) {
   await expect(page.getByRole('heading', { name: 'Complete test payment' })).toBeVisible();
 }
 
-async function capturePaymentQr(page) {
+async function scanPaymentQr(page) {
   const paymentQr = page.getByRole('img', { name: 'Payment QR code for this order' });
   const response = await page.request.get(await paymentQr.getAttribute('src'));
   expect(response.ok()).toBeTruthy();
-  const chooserOpened = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Continue to pay' }).click();
-  const chooser = await chooserOpened;
-  await chooser.setFiles({ name: 'payment-qr.png', mimeType: 'image/png', buffer: await response.body() });
+  const statusUrl = new URL(page.url());
+  const order = await (await page.request.get('/api' + statusUrl.pathname + statusUrl.search)).json();
+  if (await startPaymentScanner(page)) {
+    await showCameraQr(page, await response.body());
+  } else {
+    // Windows WebKit cannot synthesize video, so exercise the scanner's accessible link fallback.
+    test.info().annotations.push({ type: 'camera-fixture', description: 'Video stream unavailable; verified pasted QR link fallback.' });
+    await page.getByLabel('Payment QR link').fill(order.paymentUrl);
+    await page.getByRole('button', { name: 'Open scanned payment' }).click();
+  }
   await expect(page.getByLabel('Test PIN')).toBeVisible();
 }
 
@@ -65,7 +74,7 @@ test('customer workflow renders the PDF, applies settings and releases a paid jo
 
   const statusUrl = new URL(page.url());
   const statusApi = '/api' + statusUrl.pathname + statusUrl.search;
-  await capturePaymentQr(page);
+  await scanPaymentQr(page);
   const simulator = page;
   await expect(simulator.getByText(warning, { exact: true })).toBeVisible();
   const demoPin = await simulator.getByTestId('demo-pin').innerText();
@@ -117,13 +126,50 @@ test('file errors and offline state are visible on a phone-size layout', async (
 test('failed simulation keeps the order out of the print queue', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Payment failure uses the same browser-independent route.');
   await createOrder(page, 'Failure example');
-  await capturePaymentQr(page);
+  await scanPaymentQr(page);
   const simulator = page;
   await simulator.getByRole('button', { name: 'Payment Failed' }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment failed' })).toBeVisible();
   await simulator.getByRole('link', { name: 'Track print order' }).click();
   await expect(page.getByRole('heading', { name: 'Payment failed' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download PDF receipt' })).toHaveCount(0);
+});
+
+test('going offline during QR validation stops the camera and prevents stale payment navigation', async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Camera cancellation uses the same scanner on every layout.');
+  await createOrder(page, 'Interrupted camera validation');
+  const statusUrl = new URL(page.url());
+  const qrPath = await page.getByRole('img', { name: 'Payment QR code for this order' }).getAttribute('src');
+  const image = await (await page.request.get(qrPath)).body();
+  let release;
+  let verified;
+  const held = new Promise(resolve => { release = resolve; });
+  const validationReady = new Promise(resolve => { verified = resolve; });
+  await page.route('**/api/kiosk/scan-payment', async route => {
+    const response = await route.fetch();
+    verified();
+    await held;
+    await route.fulfill({ response }).catch(() => {});
+  });
+  try {
+    await startPaymentScanner(page);
+    await showCameraQr(page, image);
+    await validationReady;
+    await context.setOffline(true);
+    await expect(page.getByRole('button', { name: 'Start camera' })).toBeDisabled();
+    expect(await page.evaluate(() => window.__kioskCamera.streams.every(stream =>
+      stream.getTracks().every(track => track.readyState === 'ended')))).toBeTruthy();
+    release();
+    await context.setOffline(false);
+    await expect(page.getByRole('button', { name: 'Start camera' })).toBeEnabled();
+    await expect(page).toHaveURL(/\/scan\?session=/);
+    await expect(page.getByLabel('Test PIN')).toHaveCount(0);
+    const order = await page.request.get('/api' + statusUrl.pathname + statusUrl.search);
+    expect((await order.json()).paymentStatus).toBe('PENDING');
+  } finally {
+    release();
+    await context.setOffline(false);
+  }
 });
 
 test('customer reviews multiple files with individual page ranges and one payment QR', async ({

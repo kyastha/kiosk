@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  Camera,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -16,7 +17,6 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api, localLink, money, orderInfo } from './api.js';
 import { Details, ErrorMessage, Footer, Header, Loading } from './ui.jsx';
 import { useKioskActivity } from './activity.js';
-import PaymentCamera from './payment-camera.jsx';
 import './cart.css';
 
 const Preview = lazy(() => import('./preview.jsx'));
@@ -499,9 +499,17 @@ function SettingsStep({
         {!online && <p className="muted">Reconnect to continue to payment.</p>}
         <ErrorMessage message={error} />
         {reviewedOrder?.sessionId ? (
-          <PaymentCamera key={reviewedOrder.id} sessionId={reviewedOrder.sessionId}
-            paymentOrigin={new URL(reviewedOrder.paymentUrl).origin} online={online && !creating}
-            onVerified={() => activity?.complete()} />
+          <div>
+            <button
+              type="button"
+              className="button primary full"
+              disabled={!online || creating}
+              onClick={() => window.location.assign('/scan?session=' + encodeURIComponent(reviewedOrder.sessionId))}
+            >
+              <Camera size={19} aria-hidden="true" /> Continue to pay
+            </button>
+            <p className="price-note">Open the live camera scanner and point it at the payment QR on the kiosk screen.</p>
+          </div>
         ) : (
           <a className="button primary full" href={reviewedOrder && localLink(reviewedOrder.statusUrl)}>View order</a>
         )}

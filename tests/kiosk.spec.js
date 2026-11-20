@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { PDFDocument } from 'pdf-lib';
+import { installCamera, showCameraQr, startPaymentScanner } from './camera-fixture.js';
 
 test('laptop display tracks the phone journey, shows payment QR, then retains print status after reset', async ({ page, context }, info) => {
   test.skip(info.project.name !== 'desktop', 'The public display is tested on the kiosk monitor layout.');
+  await installCamera(context);
   await page.setViewportSize({ width: 1366, height: 768 });
   const agentHeaders = { Authorization: 'Bearer ' + process.env.KIOSK_BROWSER_AGENT_TOKEN };
   async function agent(path, data = {}) {
@@ -97,29 +99,31 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   const qrResponse = await context.request.get(await paymentQr.getAttribute('src'));
   expect(qrResponse.ok()).toBeTruthy();
   const paymentImage = await qrResponse.body();
-  const reviewUrl = phone.url();
-  const continueButton = phone.getByRole('button', { name: 'Continue to pay' });
-
-  const cancelledChooser = phone.waitForEvent('filechooser');
-  await continueButton.click();
-  const firstChooser = await cancelledChooser;
-  expect(await firstChooser.element().getAttribute('capture')).toBe('environment');
-  await expect(phone).toHaveURL(reviewUrl);
-  await expect(phone.getByLabel('Test PIN')).toHaveCount(0);
+  await startPaymentScanner(phone);
   await expect(qr).toHaveCount(0);
   await expect(paymentQr).toBeVisible();
-  await firstChooser.element().dispatchEvent('cancel');
-  await expect(continueButton).toBeEnabled();
 
-  const capturedChooser = phone.waitForEvent('filechooser');
-  await continueButton.click();
-  const chooser = await capturedChooser;
-  expect(await chooser.element().getAttribute('aria-label')).toBe('Capture payment QR');
-  expect(await chooser.element().getAttribute('capture')).toBe('environment');
-  expect(await chooser.element().getAttribute('accept')).toBe('image/*');
-  await expect(phone).toHaveURL(reviewUrl);
+  await phone.getByRole('button', { name: 'Stop camera' }).click();
+  expect(await phone.evaluate(() => window.__kioskCamera.streams.every(stream =>
+    stream.getTracks().every(track => track.readyState === 'ended')))).toBeTruthy();
+  await phone.evaluate(() => { window.__kioskCamera.denied = true; });
+  await phone.getByRole('button', { name: 'Start camera' }).click();
+  await expect(phone.getByRole('alert')).toContainText('Allow camera access');
   await expect(phone.getByLabel('Test PIN')).toHaveCount(0);
-  await chooser.setFiles({ name: 'payment-qr.png', mimeType: 'image/png', buffer: paymentImage });
+  await phone.evaluate(() => { window.__kioskCamera.denied = false; });
+  await phone.getByRole('button', { name: 'Start camera' }).click();
+  await expect(phone.getByRole('button', { name: 'Stop camera' })).toBeVisible();
+  const accessImage = await context.request.get('/api/kiosk/qr');
+  await showCameraQr(phone, await accessImage.body());
+  await expect(phone.getByRole('alert')).toContainText('Scan a payment QR from this kiosk');
+  await expect(phone.getByLabel('Test PIN')).toHaveCount(0);
+  await expect(paymentQr).toBeVisible();
+  await expect(qr).toHaveCount(0);
+
+  await showCameraQr(phone, null);
+  await phone.getByRole('button', { name: 'Start camera' }).click();
+  await expect(phone.getByRole('button', { name: 'Stop camera' })).toBeVisible();
+  await showCameraQr(phone, paymentImage);
   const simulator = phone;
   await expect(simulator.getByLabel('Test PIN')).toBeVisible();
   const pin = await simulator.getByTestId('demo-pin').innerText();
