@@ -54,7 +54,14 @@ test('customer workflow renders the PDF, applies settings and releases a paid jo
   await page.getByRole('link', { name: 'Open payment simulator' }).click();
   const simulator = await popup;
   await expect(simulator.getByText(warning, { exact: true })).toBeVisible();
-  await simulator.getByRole('button', { name: 'Payment Success' }).click();
+  const demoPin = await simulator.getByTestId('demo-pin').innerText();
+  const wrongPin = demoPin === '000000' ? '111111' : '000000';
+  await simulator.getByLabel('Test PIN').fill(wrongPin);
+  await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
+  await expect(simulator.getByRole('alert')).toContainText('demo PIN');
+  await expect(page.getByRole('heading', { name: 'Complete test payment' })).toBeVisible();
+  await simulator.getByLabel('Test PIN').fill(demoPin);
+  await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment accepted' })).toBeVisible();
   await simulator.close();
   await page.bringToFront();

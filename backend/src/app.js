@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import multer from 'multer';
 import QRCode from 'qrcode';
 import { registerAdmin } from './admin.js';
+import { assertKioskSession, createKioskSession, updateKioskActivity } from './activity.js';
 import { createCartOrder, maxCartFiles, quoteCart } from './cart.js';
 import { openDatabase } from './db.js';
 import { processDocument } from './document-processing.js';
@@ -15,6 +16,7 @@ import {
   ownedDocument, paymentLifetime, pdfPath, quote, settings,
 } from './orders.js';
 import { FakePaymentProvider, testNotice } from './payments.js';
+import { demoPaymentView, prepareDemoPayment } from './payment-gateway.js';
 import { registerAgent } from './printing.js';
 import { makeReceipt } from './receipts.js';
 import { cookieOptions, hash, HttpError, provisionAdmin, readCookie, registerAdminAuth, throttle, token, validateToken } from './security.js';
@@ -46,6 +48,8 @@ function registerDocuments(app, db, config) {
   app.post('/api/documents', throttle(12), async (req, res) => {
     if (uploadsInProgress >= 2) throw new HttpError(503, 'The kiosk is processing other documents. Try again shortly.');
     const owner = browserOwner(req, res, config, true);
+    const sessionId = req.get('x-kiosk-session');
+    if (sessionId !== undefined) assertKioskSession(db, sessionId, owner);
     const limits = settings(db);
     const middleware = multer({ storage: multer.memoryStorage(),
       limits: { files: 1, fields: 0, parts: 2, fileSize: limits.maxFileMb * 1024 ** 2 } }).single('file');
@@ -92,10 +96,10 @@ function registerDocuments(app, db, config) {
   });
 }
 
-function paymentView(db, payment) {
+function paymentView(db, provider, payment) {
   return {
     orderId: payment.order_id, total: payment.amount, schoolName: settings(db).schoolName,
-    paymentStatus: payment.status, notice: testNotice,
+    paymentStatus: payment.status, notice: testNotice, ...demoPaymentView(db, provider, payment),
   };
 }
 
@@ -117,6 +121,14 @@ function registerCustomer(app, db, config) {
     res.json({ ...settings(db), drive: config.drive, maxCartFiles, onboardingUrl });
   });
   app.get('/api/kiosk/qr', (req, res) => sendQr(res, onboardingUrl));
+  app.post('/api/kiosk/session', throttle(30), (req, res) => {
+    const owner = browserOwner(req, res, config, true);
+    res.json(createKioskSession(db, owner, req.body || {}));
+  });
+  app.post('/api/kiosk/activity', throttle(90), (req, res) => {
+    const owner = browserOwner(req, res, config);
+    res.json(updateKioskActivity(db, owner, req.body || {}));
+  });
   registerDocuments(app, db, config);
   app.post('/api/quote', (req, res) => {
     const input = req.body || {};
@@ -149,7 +161,7 @@ function registerCustomer(app, db, config) {
       expirePayments(db);
       payment = findPayment(db, req.params.reference);
     }
-    res.json(paymentView(db, payment));
+    res.json(paymentView(db, provider, payment));
   });
   app.get('/api/payments/:reference/qr', (req, res) => {
     const payment = findPayment(db, req.params.reference);
@@ -157,11 +169,10 @@ function registerCustomer(app, db, config) {
   });
   app.post('/api/payments/:reference/simulate', throttle(30), (req, res) => {
     const payment = findPayment(db, req.params.reference);
-    const { outcome } = req.body || {};
-    if (!['success', 'failure'].includes(outcome)) throw new HttpError(400, 'Choose success or failure.');
-    const status = applyPaymentEvent(db, provider, payment, provider.simulate(payment, outcome));
+    const event = prepareDemoPayment(db, provider, payment, req.body);
+    const status = applyPaymentEvent(db, provider, payment, event);
     if (!status) throw new HttpError(400, 'Could not verify this payment.');
-    res.json(paymentView(db, { ...payment, status }));
+    res.json(paymentView(db, provider, { ...payment, status }));
   });
 }
 

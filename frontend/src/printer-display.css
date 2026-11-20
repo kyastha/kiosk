@@ -1,0 +1,42 @@
+.printer-display {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100svh;
+  padding: clamp(20px, 5vw, 60px);
+  background: #f4f8f6;
+}
+.printer-display header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.printer-display section {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  width: min(780px, 100%);
+  margin: 40px auto;
+  text-align: center;
+}
+.printer-display h1 { font-size: clamp(2rem, 6vw, 4rem); }
+.printer-display section > p:not(.eyebrow) { max-width: 52ch; font-size: 1.1rem; color: var(--muted); }
+.printer-display-icon {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  color: var(--green);
+  border-radius: 28px;
+  background: #dceddf;
+}
+.printer-display-icon[data-working='true'] { animation: printer-display-pulse 2s ease-in-out infinite; }
+.printer-display .print-progress { width: min(570px, 100%); }
+.printer-display footer { color: var(--muted); text-align: center; font-size: .9rem; overflow-wrap: anywhere; }
+@keyframes printer-display-pulse {
+  50% { box-shadow: 0 0 0 15px #dceddf66; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .printer-display-icon[data-working='true'] { animation: none; }
+}

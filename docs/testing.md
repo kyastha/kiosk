@@ -21,9 +21,9 @@ Container startup, the school's physical printer and phones, and live Google aut
 
 ## On the actual kiosk
 
-1. Open /kiosk on the display, select Fullscreen, and confirm it shows Live updates. On physical Android and iPhone devices on school Wi-Fi, scan the permanent QR and confirm the trusted HTTPS URL. Add a PDF and a representative school Office file to one cart. Check both previews, page counts, fonts and prices.
-2. Select nonconsecutive pages in one file, two copies, and a custom scale. Check the consolidated total and verify that the payment QR opens a separate simulator URL. A failed payment must never reach CUPS.
-3. Complete a successful simulation. Confirm the display briefly shows payment acceptance and returns to Ready to scan with the same onboarding QR. On the phone, check live print progress and download the itemized receipt. Refresh and replay the payment URL. Verify that the cart has one payment record and one print job.
+1. Open /kiosk on the laptop display, select Fullscreen, and confirm it shows Live updates. Scan the permanent QR from a phone and watch the map highlight the scan and files steps. Add two documents, open their previews, adjust settings, then review. Click the map nodes to read their details.
+2. Continue to payment. Check that the separate payment QR on the laptop shows the same consolidated total as the phone. Open it and verify the amount appears automatically. Try an incorrect demo PIN and confirm no job is released.
+3. Enter the displayed demo PIN to complete the test payment. Confirm the laptop returns to Ready to scan while retaining the print status. Watch the queued, preparing, submitted and completion states on /kiosk or /printer. Download the itemized receipt, then replay the payment request and confirm one payment and one print job.
 4. Print the dashboard test page. Confirm A4, grayscale, and single-sided output. Print the paid job and compare paper count, range, order, copies and scale with the checkout summary. Compare the dashboard's terminal status with the actual printer's IPP reporting.
 5. Remove paper or power before another job, then restore it. Inspect the error reason and any partial output. Resume the existing CUPS job or retry an eligible unsubmitted attempt. Confirm that the order and original payment survive.
 6. Restart the agent after a submission. Confirm it finds the existing CUPS job and leaves the copy count unchanged. Restart the backend and confirm the order and receipt are still accessible.

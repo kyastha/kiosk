@@ -1,6 +1,7 @@
 import { STATUS_CODES } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { authorizeOrder, orderView, settings } from './orders.js';
+import { kioskSnapshot } from './activity.js';
 
 const kiosk = '/ws/kiosk';
 const orderPath = /^\/ws\/orders\/([a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})$/i;
@@ -34,9 +35,6 @@ function publish(peer, client, payload) {
 }
 
 export function attachLive(server, { db, config }) {
-  const latestKioskOrder = db.prepare(`SELECT o.id, o.payment_status AS paymentStatus, o.print_status AS printStatus,
-    p.updated_at AS updatedAt FROM orders o JOIN payments p ON p.order_id = o.id
-    WHERE o.kiosk = 1 ORDER BY o.created_at DESC, o.id DESC LIMIT 1`);
   const websocket = new WebSocketServer({
     noServer: true, clientTracking: false, perMessageDeflate: false, maxPayload: 1024,
     maxFragments: 16, maxBufferedChunks: 32, closeTimeout: 1500,
@@ -46,8 +44,7 @@ export function attachLive(server, { db, config }) {
 
   function snapshot(client) {
     if (client.feed === kiosk) {
-      const latest = latestKioskOrder.get();
-      return JSON.stringify({ order: latest ? { ...latest, updatedAt: new Date(latest.updatedAt).toISOString() } : null });
+      return JSON.stringify(kioskSnapshot(db));
     }
     const order = authorizeOrder(db, client.feed, client.key);
     return JSON.stringify({ ...orderView(order, config, client.key), schoolName: settings(db).schoolName });

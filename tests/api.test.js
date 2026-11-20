@@ -165,8 +165,14 @@ test('backend rejects forged events, unpaid and failed payments never print, dup
   await expectJson('/api/payments/unknown/simulate', post({ outcome: 'success' }), 404);
   await expectJson('/api/payments/' + paymentRef + '/simulate', post({ status: 'TEST_PAID' }), 400);
   assert.deepEqual(await expectJson('/api/agent/claim', post({}, agent)), { job: null });
+  const gateway = await expectJson('/api/payments/' + paymentRef);
+  assert.equal(gateway.total, payment.amount);
+  assert.match(gateway.demoPin, /^\d{6}$/);
+  await expectJson('/api/payments/' + paymentRef + '/simulate', post({ outcome: 'success', amount: 1, pin: gateway.demoPin }), 400);
+  await expectJson('/api/payments/' + paymentRef + '/simulate', post({ outcome: 'success', amount: payment.amount }), 401);
+  assert.equal(db.prepare('SELECT count(*) AS count FROM print_jobs').get().count, 0);
   const outcomes = await Promise.all(Array.from({ length: 3 }, () =>
-    expectJson('/api/payments/' + paymentRef + '/simulate', post({ outcome: 'success', amount: 1 }))));
+    expectJson('/api/payments/' + paymentRef + '/simulate', post({ outcome: 'success', amount: payment.amount, pin: provider.demoPin(payment) }))));
   assert.ok(outcomes.every(result => result.paymentStatus === 'TEST_PAID' && result.total === 3000));
   assert.equal(db.prepare('SELECT count(*) AS count FROM print_jobs WHERE order_id = ?').get(orderId).count, 1);
   assert.equal(db.prepare("SELECT count(*) AS count FROM audit_logs WHERE action = 'PAYMENT_REPLAY' AND order_id = ?").get(orderId).count, 2);

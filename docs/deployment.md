@@ -32,6 +32,8 @@ Check the queue's driver options for grayscale support. The agent applies the A4
 
 The Nginx example routes /ws/ WebSocket upgrades to the backend. Apply the corresponding upgrade headers if you use an existing reverse proxy, then reload it and verify that the monitor shows Live updates. [Nginx WebSocket proxying](https://nginx.org/en/docs/http/websocket.html)
 
+For the 14-inch laptop screen, /kiosk combines the interactive journey map, the permanent access QR, the current payment QR and total, and the printing status. /printer provides a dedicated printing view. Test payment pages supply their own six-digit demo PIN and load the amount automatically. Rebuild the frontend and restart the backend together when updating this feature. Additive SQLite migrations run during startup against the configured DATA_DIR.
+
 For native deployment install Node, Poppler, LibreOffice Writer/Calc/Impress and fonts. Use the README build and start commands with a dedicated non-root service account, a private persistent DATA_DIR, a loopback bind, and the same HTTPS proxy configuration. The HTTP LAN override is intended for an isolated test network.
 
 ## Install and test the agent

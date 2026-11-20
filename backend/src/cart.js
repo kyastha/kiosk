@@ -10,6 +10,7 @@ import {
   pdfPath, settings, validateOrderIdentifier,
 } from './orders.js';
 import { equal, hash, HttpError } from './security.js';
+import { assertKioskSession } from './activity.js';
 
 const run = promisify(execFile);
 const worker = fileURLToPath(new URL('./cart-worker.js', import.meta.url));
@@ -89,14 +90,21 @@ async function mergeCart(config, selection, output) {
 export async function createCartOrder(db, config, provider, { input, ownerHash, idempotencyKey }) {
   validateOrderIdentifier(idempotencyKey);
   const selection = selectItems(db, input, ownerHash);
-  const kiosk = input.kiosk === true;
-  const requestHash = hash(JSON.stringify({
+  const kiosk = input.kiosk === true || input.sessionId !== undefined;
+  const request = {
     ...normalizePrintSettings(input, { maxCopies: 100 }), kiosk,
     items: selection.map(({ document, pageRanges }) => [document.id, pageRanges]),
-  }));
-  const replay = () => previousOrder(db, config, ownerHash, idempotencyKey, requestHash);
+  };
+  if (input.sessionId !== undefined) request.sessionId = input.sessionId;
+  const requestHash = hash(JSON.stringify(request));
+  const replay = () => {
+    const existing = previousOrder(db, config, ownerHash, idempotencyKey, requestHash);
+    if (existing && input.sessionId !== undefined) assertKioskSession(db, input.sessionId, ownerHash, existing.id);
+    return existing;
+  };
   const existing = replay();
   if (existing) return existing;
+  if (input.sessionId !== undefined) assertKioskSession(db, input.sessionId, ownerHash);
   checkExpectedTotal(input, priceCart(input, selection, settings(db)));
   if (activeMerges >= 2) throw new HttpError(503, 'The kiosk is combining other files. Try again shortly.');
 
@@ -110,6 +118,7 @@ export async function createCartOrder(db, config, provider, { input, ownerHash, 
     const result = transact(db, () => {
       const previous = replay();
       if (previous) return { order: previous, inserted: false };
+      if (input.sessionId !== undefined) assertKioskSession(db, input.sessionId, ownerHash);
       // Upload retention and pricing can change while the worker runs.
       const values = priceCart(input, selectItems(db, input, ownerHash), settings(db));
       checkExpectedTotal(input, values);
@@ -119,6 +128,7 @@ export async function createCartOrder(db, config, provider, { input, ownerHash, 
         .run(id, 'cart', fileName, values.printablePages, Date.now());
       const order = insertOrder(db, config, provider, {
         document: { id, file_name: fileName }, values, ownerHash, idempotencyKey, requestHash, kiosk, items: values.items,
+        sessionId: input.sessionId,
       });
       return { order, inserted: true };
     });

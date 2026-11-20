@@ -10,6 +10,7 @@ import { createApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { attachLive } from '../src/live.js';
 import { hash, token } from '../src/security.js';
+import { createKioskSession, updateKioskActivity } from '../src/activity.js';
 
 async function fixture(t) {
   const storage = await mkdtemp(join(tmpdir(), 'kiosk-live-'));
@@ -76,18 +77,22 @@ function refused(peer) {
   });
 }
 
-test('kiosk WebSocket sends only the latest QR order with the payment timestamp', async t => {
+test('kiosk WebSocket sends safe order and printer progress with current timestamps', async t => {
   const { db, socket } = await fixture(t);
   const peer = socket('/ws/kiosk');
-  assert.deepEqual(await nextMessage(peer), { order: null });
+  const empty = await nextMessage(peer);
+  assert.equal(empty.order, null);
+  assert.equal(empty.activity, null);
+  assert.equal(empty.printingOrder, null);
+  assert.deepEqual(empty.printer, { status: 'UNKNOWN', reasons: [], activeJobs: 0, lastSeen: null });
   const created = Date.now();
   const latest = insertOrder(db, true, created);
   insertOrder(db, true, created - 1000);
   insertOrder(db, false, created + 1000);
-  assert.deepEqual(await nextMessage(peer), { order: {
+  assert.deepEqual((await nextMessage(peer)).order, {
     id: latest.id, paymentStatus: 'PENDING', printStatus: 'PENDING_PAYMENT',
-    updatedAt: new Date(created).toISOString(),
-  } });
+    total: 500, updatedAt: new Date(created).toISOString(), paymentUpdatedAt: new Date(created).toISOString(),
+  });
 
   const paidAt = created + 2000;
   db.prepare("UPDATE payments SET status = 'TEST_PAID', updated_at = ? WHERE order_id = ?").run(paidAt, latest.id);
@@ -95,13 +100,37 @@ test('kiosk WebSocket sends only the latest QR order with the payment timestamp'
     .run(paidAt, latest.id);
   assert.deepEqual((await nextMessage(peer)).order, {
     id: latest.id, paymentStatus: 'TEST_PAID', printStatus: 'QUEUED', updatedAt: new Date(paidAt).toISOString(),
+    total: 500,
+    paymentUpdatedAt: new Date(paidAt).toISOString(),
   });
   db.prepare("UPDATE orders SET print_status = 'COMPLETED', updated_at = ? WHERE id = ?").run(paidAt + 1000, latest.id);
   assert.deepEqual((await nextMessage(peer)).order, {
-    id: latest.id, paymentStatus: 'TEST_PAID', printStatus: 'COMPLETED', updatedAt: new Date(paidAt).toISOString(),
+    id: latest.id, paymentStatus: 'TEST_PAID', printStatus: 'COMPLETED', updatedAt: new Date(paidAt + 1000).toISOString(),
+    total: 500,
+    paymentUpdatedAt: new Date(paidAt).toISOString(),
   });
   const reconnect = socket('/ws/kiosk');
   assert.equal((await nextMessage(reconnect)).order.printStatus, 'COMPLETED');
+});
+
+test('kiosk feed publishes a scan before checkout and reconnects to the selected session', async t => {
+  const { db, socket } = await fixture(t);
+  const peer = socket('/ws/kiosk');
+  await nextMessage(peer);
+  const ownerHash = hash('first browser');
+  const session = createKioskSession(db, ownerHash);
+  assert.equal((await nextMessage(peer)).activity.stage, 'SCANNED');
+  updateKioskActivity(db, ownerHash, { ...session, stage: 'UPLOADING', fileCount: 2, sequence: 1 });
+  const snapshot = await nextMessage(peer);
+  assert.equal(snapshot.activity.fileCount, 2);
+  assert.equal(snapshot.order, null);
+  const reconnect = socket('/ws/kiosk');
+  assert.deepEqual(await nextMessage(reconnect), snapshot);
+  const next = createKioskSession(db, hash('other browser'));
+  assert.equal((await nextMessage(peer)).activity.sessionId, next.sessionId);
+  updateKioskActivity(db, ownerHash, { ...session, stage: 'REVIEW', fileCount: 2, sequence: 2 });
+  const finalReconnect = socket('/ws/kiosk');
+  assert.equal((await nextMessage(finalReconnect)).activity.sessionId, next.sessionId);
 });
 
 test('private WebSocket matches the order API, ignores writes and revokes changed keys', async t => {

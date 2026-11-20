@@ -9,7 +9,7 @@ servers:
   - url: /
 x-websockets:
   /ws/kiosk:
-    description: Same-origin public display feed. Sends order null or the latest kiosk order ID, payment status, print status and payment timestamp.
+    description: Same-origin public display feed with activity, order, printingOrder and printer. The selected session's pending order includes total and paymentQrUrl. Personal names, file names and private order keys are excluded.
   /ws/orders/{id}:
     description: Same-origin private feed. The key query parameter is required. Sends the same JSON as GET /api/orders/{id}.
 paths:
@@ -28,6 +28,47 @@ paths:
       summary: Permanent kiosk access QR for the onboarding URL
       responses:
         '200': { $ref: '#/components/responses/Png' }
+  /api/kiosk/session:
+    post:
+      summary: Start or resume a browser-owned kiosk activity session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Current session identifier and activity sequence
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string, format: uuid }
+                  sequence: { type: integer }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/kiosk/activity:
+    post:
+      summary: Update this browser session's current checkout step
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, stage]
+              properties:
+                sessionId: { type: string, format: uuid }
+                stage: { enum: [SCANNED, SELECTING, UPLOADING, SETTINGS, REVIEW] }
+                fileCount: { type: integer, minimum: 0, maximum: 8 }
+                sequence: { type: integer, minimum: 1, maximum: 1000000000 }
+      responses:
+        '200': { description: Current session identifier and accepted sequence }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /api/documents:
     post:
       summary: Convert and store a private document for this browser
@@ -118,7 +159,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/Reference'
     post:
-      summary: Request a simulation outcome and read the first verified terminal result
+      summary: Confirm a test payment with its demo PIN and verified amount, or simulate failure
       requestBody:
         required: true
         content:
@@ -128,10 +169,14 @@ paths:
               required: [outcome]
               properties:
                 outcome: { enum: [success, failure] }
+                pin: { type: string, pattern: '^[0-9]{6}$', description: Demo challenge required for a pending successful test payment }
+                amount: { type: integer, description: Exact order total in NPR paisa required for success }
       responses:
         '200': { $ref: '#/components/responses/Payment' }
         '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /api/admin/login:
     post:
       summary: Create an administrator session
@@ -405,6 +450,7 @@ components:
               scalePercent: { type: [integer, 'null'], minimum: 25, maximum: 200 }
               expectedTotal: { type: integer, description: Optional guard for a rate change between quote and checkout }
               kiosk: { type: boolean, description: Associates a checkout from the onboarding QR with the kiosk display. }
+              sessionId: { type: string, format: uuid, description: The browser-owned activity session to bind atomically to this order }
   schemas:
     Document:
       type: object
@@ -478,3 +524,6 @@ components:
               schoolName: { type: string }
               paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
               notice: { type: string }
+              demoPin: { type: [string, 'null'], description: Public test PIN for this payment. No real financial credential. }
+              pinAttemptsRemaining: { type: integer, minimum: 0, maximum: 5 }
+              expiresAt: { type: string, format: date-time }

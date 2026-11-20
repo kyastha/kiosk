@@ -21,6 +21,12 @@ export class FakePaymentProvider extends PaymentProvider {
     return { provider: this.name, reference: token() };
   }
 
+  demoPin(payment) {
+    const challenge = createHmac('sha256', this.secret)
+      .update(JSON.stringify(['fake-payment-pin-v1', payment.reference, payment.amount])).digest();
+    return String(challenge.readUInt32BE(0) % 1_000_000).padStart(6, '0');
+  }
+
   sign({ id, reference, amount, outcome }) {
     return createHmac('sha256', this.secret)
       .update(JSON.stringify(['fake-payment-v1', id, reference, amount, outcome])).digest('hex');

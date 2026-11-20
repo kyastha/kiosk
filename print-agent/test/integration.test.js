@@ -91,7 +91,10 @@ test('the real API dispatches only paid documents and recovers a lost CUPS submi
   await (await agent()).tick();
   assert.equal(submits, 0);
   const reference = new URL(order.paymentUrl).pathname.split('/').at(-1);
-  await json('/api/payments/' + reference + '/simulate', { body: { outcome: 'success' } });
+  const payment = await json('/api/payments/' + reference);
+  await json('/api/payments/' + reference + '/simulate', {
+    body: { outcome: 'success', pin: payment.demoPin, amount: payment.total }
+  });
   const statusPath = new URL(order.statusUrl);
   const getOrder = () => json('/api' + statusPath.pathname + statusPath.search);
   assert.equal((await getOrder()).printStatus, 'QUEUED');

@@ -59,16 +59,24 @@ export function Payment({ reference, online }) {
   const resource = useResource(reference && route, online);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [pin, setPin] = useState('');
   const payment = resource.value;
   const paid = payment?.paymentStatus === 'TEST_PAID';
   const failed = payment?.paymentStatus === 'FAILED';
+  const locked = payment?.pinAttemptsRemaining === 0;
+
+  useEffect(() => { setPin(''); setActionError(''); }, [reference]);
 
   async function simulate(outcome) {
     if (busy || paid || failed) return;
     setBusy(true);
     setActionError('');
     try {
-      resource.update(await api(route + '/simulate', { method: 'POST', body: { outcome } }));
+      resource.update(await api(route + '/simulate', {
+        method: 'POST',
+        body: outcome === 'success' ? { outcome, pin, amount: payment.total } : { outcome },
+      }));
+      setPin('');
     } catch (problem) {
       setActionError(problem.message);
       resource.refresh();
@@ -90,7 +98,7 @@ export function Payment({ reference, online }) {
           <p className="muted">
             {paid || failed
               ? 'Return to the order tab for the latest print status.'
-              : 'Choose an outcome for this school print order.'}
+              : 'The total is verified automatically. Use the test PIN below to confirm.'}
           </p>
           <TestNotice />
           <ErrorMessage
@@ -109,7 +117,7 @@ export function Payment({ reference, online }) {
                 rows={[
                   ['Order ID', payment.orderId],
                   ['School', payment.schoolName],
-                  ['Amount', money(payment.total)],
+                  ['Verified amount', money(payment.total)],
                   [
                     'Status',
                     <Status value={payment.paymentStatus} label={statusLabels[payment.paymentStatus]} />,
@@ -121,14 +129,38 @@ export function Payment({ reference, online }) {
                   <ArrowLeft size={18} aria-hidden="true" /> Return to kiosk
                 </a>
               ) : (
-                <div className="payment-actions">
+                <form className="payment-actions" onSubmit={(event) => { event.preventDefault(); simulate('success'); }}>
+                  <div className="demo-payment-instructions">
+                    <p>Use this demo PIN for this test payment.</p>
+                    <code data-testid="demo-pin">{payment.demoPin || 'Unavailable'}</code>
+                    <p>Enter only the demo PIN shown here.</p>
+                  </div>
+                  <label className="field">
+                    <span>Test PIN</span>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      pattern="[0-9]{6}"
+                      minLength={6}
+                      maxLength={6}
+                      required
+                      value={pin}
+                      onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
+                      disabled={busy || !online || locked}
+                      aria-describedby="test-pin-attempts"
+                    />
+                  </label>
+                  <p className="muted" id="test-pin-attempts">
+                    {locked ? 'This test payment is locked. Start a new order.' :
+                      `${payment.pinAttemptsRemaining ?? 5} PIN attempts remaining.`}
+                  </p>
                   <button
                     className="button primary full"
-                    type="button"
-                    onClick={() => simulate('success')}
-                    disabled={busy || !online}
+                    type="submit"
+                    disabled={busy || !online || locked || pin.length !== 6}
                   >
-                    <CheckCircle2 size={20} aria-hidden="true" /> Payment Success
+                    <CheckCircle2 size={20} aria-hidden="true" /> Pay {money(payment.total)}
                   </button>
                   <button
                     className="button secondary full"
@@ -138,7 +170,7 @@ export function Payment({ reference, online }) {
                   >
                     <CircleX size={20} aria-hidden="true" /> Payment Failed
                   </button>
-                </div>
+                </form>
               )}
               {busy && <Loading>Verifying test payment…</Loading>}
             </>

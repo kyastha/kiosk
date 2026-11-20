@@ -3,6 +3,7 @@ import { readdir, rm, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { audit, transact } from './db.js';
 import { HttpError, equal, hash, validateToken } from './security.js';
+import { assertKioskSession, bindKioskOrder } from './activity.js';
 
 export const paymentLifetime = 30 * 60_000;
 const hour = 60 * 60_000;
@@ -124,7 +125,7 @@ export function checkExpectedTotal(input, values) {
 }
 
 export function insertOrder(db, config, provider, {
-  document, values, ownerHash, idempotencyKey, requestHash, kiosk = false, items,
+  document, values, ownerHash, idempotencyKey, requestHash, kiosk = false, items, sessionId,
 }) {
   const id = randomUUID();
   const key = orderKey(config, id, ownerHash);
@@ -141,6 +142,7 @@ export function insertOrder(db, config, provider, {
   db.prepare(`INSERT INTO payments (order_id, provider, reference, amount, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, 'PENDING', ?, ?)`).run(id, providerName, reference, values.total, now, now);
   audit(db, 'customer', 'PAYMENT_CREATED', id, { provider: providerName, amount: values.total });
+  if (sessionId !== undefined) bindKioskOrder(db, sessionId, ownerHash, id);
   return orderView(findOrder(db, id), config, key);
 }
 
@@ -150,19 +152,24 @@ export function createOrder(db, config, provider, { input, ownerHash, idempotenc
     const document = ownedDocument(db, input.documentId, ownerHash);
     // Hash the settings separately from the rate so retries keep the original quote.
     const normalized = normalizeOrder(input, document, { maxCopies: 100 });
-    const kiosk = input.kiosk === true;
-    const requestHash = hash(JSON.stringify(kiosk ? { ...normalized, kiosk } : normalized));
+    const kiosk = input.kiosk === true || input.sessionId !== undefined;
+    const request = kiosk ? { ...normalized, kiosk } : normalized;
+    if (input.sessionId !== undefined) request.sessionId = input.sessionId;
+    const requestHash = hash(JSON.stringify(request));
     if (idempotencyKey) {
       const existing = db.prepare('SELECT id, request_hash FROM orders WHERE document_id = ? AND idempotency_key = ?')
         .get(document.id, idempotencyKey);
       if (existing) {
         if (!equal(existing.request_hash, requestHash)) throw new HttpError(409, 'This request identifier has already been used.');
+        if (input.sessionId !== undefined) assertKioskSession(db, input.sessionId, ownerHash, existing.id);
         return orderView(findOrder(db, existing.id), config, orderKey(config, existing.id, ownerHash));
       }
     }
+    if (input.sessionId !== undefined) assertKioskSession(db, input.sessionId, ownerHash);
     const values = quote(input, document, settings(db));
     checkExpectedTotal(input, values);
-    return insertOrder(db, config, provider, { document, values, ownerHash, idempotencyKey, requestHash, kiosk });
+    return insertOrder(db, config, provider, { document, values, ownerHash, idempotencyKey, requestHash, kiosk,
+      sessionId: input.sessionId });
   });
 }
 

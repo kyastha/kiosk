@@ -15,6 +15,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api, localLink, money, orderInfo } from './api.js';
 import { Details, ErrorMessage, Footer, Header, Loading } from './ui.jsx';
+import { useKioskActivity } from './activity.js';
 import './cart.css';
 
 const Preview = lazy(() => import('./preview.jsx'));
@@ -106,7 +107,7 @@ function Welcome({ config }) {
   );
 }
 
-function UploadStep({ config, customerName, setName, online, cart, setCart, onContinue }) {
+function UploadStep({ config, customerName, setName, online, cart, setCart, onContinue, activity }) {
   const maxDocuments = config.maxCartFiles ?? 8;
   const fileRef = useRef(null);
   const [busy, setBusy] = useState('');
@@ -151,7 +152,10 @@ function UploadStep({ config, customerName, setName, online, cart, setCart, onCo
         accepted.push({ key: requestKey(), file });
       }
     }
-    if (accepted.length) setCart((current) => [...current, ...accepted]);
+    if (accepted.length) {
+      setCart((current) => [...current, ...accepted]);
+      activity?.report('SELECTING', cart.length + accepted.length);
+    }
     setError(errors.join(' '));
   }
 
@@ -177,18 +181,31 @@ function UploadStep({ config, customerName, setName, online, cart, setCart, onCo
       return;
     }
     setError('');
+    setBusy('Connecting to the kiosk…');
+    let sessionId;
+    try {
+      activity?.report('UPLOADING', cart.length);
+      sessionId = await activity?.session();
+    } catch (problem) {
+      setError(problem.message);
+      setBusy('');
+      return;
+    }
     for (const [index, entry] of cart.entries()) {
       if (entry.document) continue;
       setBusy('Preparing document ' + (index + 1) + ' of ' + cart.length + '…');
       const body = new FormData();
       body.set('file', entry.file);
       try {
-        const document = await api('/api/documents', { method: 'POST', body });
+        const document = await api('/api/documents', {
+          method: 'POST', body, headers: sessionId ? { 'X-Kiosk-Session': sessionId } : {},
+        });
         setCart((current) =>
           current.map((item) => (item.key === entry.key ? { key: item.key, document } : item)),
         );
       } catch (problem) {
         setError(entry.file.name + ' — ' + problem.message);
+        activity?.report('SELECTING', cart.length);
         setBusy('');
         return;
       }
@@ -283,6 +300,7 @@ function UploadStep({ config, customerName, setName, online, cart, setCart, onCo
                     disabled={!!busy}
                     onClick={() => {
                       setCart((current) => current.filter((item) => item.key !== key));
+                      activity?.report('SELECTING', cart.length - 1);
                       setError('');
                     }}
                   >
@@ -325,6 +343,7 @@ function SettingsStep({
   setOptions,
   ranges,
   setRanges,
+  activity,
 }) {
   const [previewId, setPreviewId] = useState(documents[0].id);
   const [quoteResult, setQuoteResult] = useState(null);
@@ -333,6 +352,9 @@ function SettingsStep({
   const [error, setError] = useState('');
   const [review, setReview] = useState(false);
   const orderKey = useRef(null);
+  useEffect(() => {
+    activity?.report(review ? 'REVIEW' : 'SETTINGS', documents.length);
+  }, [activity, review, documents.length]);
   const document = documents.find((item) => item.id === previewId) ?? documents[0];
   const range = ranges[document.id] ?? allPages;
   const items = documents.map((item) => ({
@@ -390,11 +412,16 @@ function SettingsStep({
     setCreating(true);
     setError('');
     try {
+      const sessionId = await activity?.session();
       const order = await api('/api/orders', {
         method: 'POST',
         headers: { 'Idempotency-Key': orderKey.current.key },
-        body: { ...JSON.parse(input), expectedTotal: quote.total, ...(kiosk ? { kiosk: true } : {}) },
+        body: {
+          ...JSON.parse(input), expectedTotal: quote.total, ...(kiosk ? { kiosk: true } : {}),
+          ...(sessionId ? { sessionId } : {}),
+        },
       });
+      activity?.complete();
       window.location.assign(localLink(order.statusUrl));
     } catch (problem) {
       setError(problem.message);
@@ -631,6 +658,7 @@ export function Checkout({ online }) {
   const [ranges, setRanges] = useState({});
   const [attempt, setAttempt] = useState(0);
   const kiosk = new URLSearchParams(window.location.search).get('kiosk') === '1';
+  const activity = useKioskActivity(kiosk && Boolean(config), online);
 
   useEffect(() => {
     if (!online) return;
@@ -648,6 +676,7 @@ export function Checkout({ online }) {
 
   function changeStep(value) {
     setSettingsOpen(value);
+    activity?.report(value ? 'SETTINGS' : 'SELECTING', cart.length);
     window.scrollTo({ top: 0 });
   }
 
@@ -674,6 +703,7 @@ export function Checkout({ online }) {
                 cart={cart}
                 setCart={setCart}
                 onContinue={() => changeStep(true)}
+                activity={activity}
               />
               <aside className="how-card">
                 <p className="eyebrow">HOW IT WORKS</p>
@@ -719,6 +749,7 @@ export function Checkout({ online }) {
               ranges={ranges}
               setRanges={setRanges}
               onBack={() => changeStep(false)}
+              activity={activity}
             />
           ))}
         <Footer />
