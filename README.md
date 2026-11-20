@@ -58,3 +58,9 @@ The Node suite covers conversion, access control, pricing, simulator verificatio
 | docs | [Architecture](docs/architecture.md), [API](docs/openapi.yaml), [deployment](docs/deployment.md) and [testing](docs/testing.md) |
 
 Released under the [MIT license](LICENSE).
+
+## Review and scan payment
+
+Selecting Review order creates the session's pending payment and displays its unique QR and stored total on the kiosk. Editing the reviewed settings cancels that payment reference before returning to setup. Select Scan kiosk payment QR on the phone to open the camera scanner, then enter the demo PIN in the payment simulator. The backend checks the session, reference, total and PIN before releasing one print job.
+
+The scanner requires HTTPS, camera permission and a browser with the native BarcodeDetector QR API. Browsers without that API can use their phone camera to copy the QR link and paste it into the scanner's Payment QR link field. Cross-browser camera decoding remains dependent on installing a portable decoder.

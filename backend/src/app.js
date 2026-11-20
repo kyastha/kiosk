@@ -19,6 +19,7 @@ import { FakePaymentProvider, testNotice } from './payments.js';
 import { demoPaymentView, prepareDemoPayment } from './payment-gateway.js';
 import { registerAgent } from './printing.js';
 import { makeReceipt } from './receipts.js';
+import { cancelReview, scanPayment } from './review.js';
 import { cookieOptions, hash, HttpError, provisionAdmin, readCookie, registerAdminAuth, throttle, token, validateToken } from './security.js';
 
 function browserOwner(req, res, config, issue = false) {
@@ -129,6 +130,9 @@ function registerCustomer(app, db, config) {
     const owner = browserOwner(req, res, config);
     res.json(updateKioskActivity(db, owner, req.body || {}));
   });
+  app.post('/api/kiosk/scan-payment', throttle(60), (req, res) => {
+    res.json(scanPayment(db, config, browserOwner(req, res, config), req.body || {}));
+  });
   registerDocuments(app, db, config);
   app.post('/api/quote', (req, res) => {
     const input = req.body || {};
@@ -148,6 +152,9 @@ function registerCustomer(app, db, config) {
   app.get('/api/orders/:id', (req, res) => {
     const row = authorizeOrder(db, req.params.id, req.query.key);
     res.json({ ...orderView(row, config, req.query.key), schoolName: settings(db).schoolName });
+  });
+  app.post('/api/orders/:id/cancel-review', throttle(24), (req, res) => {
+    res.json(cancelReview(db, req.params.id, req.body?.key, browserOwner(req, res, config)));
   });
   app.get('/api/orders/:id/receipt', async (req, res) => {
     const order = authorizeOrder(db, req.params.id, req.query.key);

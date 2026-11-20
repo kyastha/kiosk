@@ -48,3 +48,11 @@ Print starts PENDING_PAYMENT and becomes PAYMENT_FAILED or QUEUED. The agent cla
 ## Trust boundaries
 
 Use HTTPS and a dedicated origin for phones, httpOnly admin and upload cookies, strict same-origin mutation checks, hashed passwords, private storage, finite rate and conversion limits, and a kiosk-specific agent token. Google Picker uses a browser OAuth access token scoped to drive.file, downloads only the selected file directly from Google, and uploads it through the normal validation path. Keep Fonepay disabled until official onboarding.
+
+## Review-triggered QR and phone scanner
+
+Review order creates the pending order immediately using the existing idempotency key and browser-owned session. The kiosk receives its payment QR and immutable total through the live feed. Editing first calls POST /api/orders/:id/cancel-review with the private order key. The backend cancels the unpaid reference and detaches its session atomically; paid orders cannot be edited.
+
+The phone's /scan?session=... view validates scanned same-origin payment URLs, then POSTs {sessionId,reference} to /api/kiosk/scan-payment. This route verifies browser ownership, the bound order, the reference and expiry before returning the canonical payment URL and stored total. The existing PIN gateway performs the final amount and PIN verification and transactional single-job release.
+
+Camera decoding uses the native BarcodeDetector QR API in supporting secure-context browsers. The scanner also accepts a pasted QR link and performs the same backend validation. Portable camera decoding in browsers without that API remains a compatibility limitation.

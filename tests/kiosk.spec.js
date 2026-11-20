@@ -73,11 +73,12 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   await expect(phone.getByRole('img', { name: 'Preview of page 1' })).toBeVisible();
   await expect(map.locator('[aria-current="step"]')).toContainText('Settings');
   await phone.getByRole('button', { name: 'Review order' }).click();
-  await expect(page.getByRole('heading', { name: 'Reviewing the order' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Checkout in progress' })).toBeVisible();
   await phone.getByRole('button', { name: 'Edit settings' }).click();
   await expect(map.locator('[aria-current="step"]')).toContainText('Settings');
   await phone.getByRole('button', { name: 'Review order' }).click();
 
+  await expect(page.getByRole('img', { name: 'Scan this QR code for the current test payment' })).toBeVisible();
   const orderSocket = phone.waitForEvent('websocket', {
     predicate: socket => new URL(socket.url()).pathname.startsWith('/ws/orders/'),
   });
@@ -96,9 +97,16 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(768);
   await page.screenshot({ path: info.outputPath('kiosk-payment-1366.png') });
 
-  const popup = phone.waitForEvent('popup');
-  await phone.getByRole('link', { name: 'Open payment simulator' }).click();
-  const simulator = await popup;
+  const qrReference = (await paymentQr.getAttribute('src')).split('/')[3];
+  const scannedUrl = new URL('/pay/' + qrReference, config.onboardingUrl).href;
+  await phone.addInitScript((url) => {
+    window.BarcodeDetector = class { async detect() { return [{ rawValue: url }]; } };
+    Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: async () => new MediaStream() } });
+    HTMLMediaElement.prototype.play = async function () {};
+  }, scannedUrl);
+  await phone.getByRole('link', { name: 'Scan kiosk payment QR' }).click();
+  await phone.getByRole('button', { name: 'Start camera' }).click();
+  const simulator = phone;
   await simulator.getByLabel('Test PIN').fill(await simulator.getByTestId('demo-pin').innerText());
   await simulator.getByRole('button', { name: /^Pay NPR/ }).click();
   await expect(simulator.getByRole('heading', { name: 'Test payment accepted' })).toBeVisible();
@@ -106,6 +114,7 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   await expect(page.getByRole('heading', { name: 'Test payment accepted' })).toBeVisible();
   await expect(qr).toBeVisible();
   await expect(paymentQr).toHaveCount(0);
+  await phone.getByRole('link', { name: 'Track print order' }).click();
   await expect(phone.getByText('Live updates', { exact: true })).toBeVisible();
   await expect(phone.locator('.print-progress [aria-current="step"]')).toHaveText('Queued');
   await expect(phone.getByRole('link', { name: 'Download PDF receipt' })).toBeVisible();

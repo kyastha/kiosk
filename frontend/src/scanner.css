@@ -1,0 +1,3 @@
+.scanner-card { display: grid; gap: 18px; }
+.scanner-video { width: 100%; aspect-ratio: 4 / 3; max-height: 300px; object-fit: cover; background: #173f33; border-radius: 12px; }
+.scanner-card form { display: grid; gap: 12px; text-align: left; }

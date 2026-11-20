@@ -64,6 +64,7 @@ export function Payment({ reference, online }) {
   const paid = payment?.paymentStatus === 'TEST_PAID';
   const failed = payment?.paymentStatus === 'FAILED';
   const locked = payment?.pinAttemptsRemaining === 0;
+  const originalOrder = payment && reviewedOrder(payment.orderId);
 
   useEffect(() => { setPin(''); setActionError(''); }, [reference]);
 
@@ -125,8 +126,8 @@ export function Payment({ reference, online }) {
                 ]}
               />
               {paid || failed ? (
-                <a className="button secondary full" href="/">
-                  <ArrowLeft size={18} aria-hidden="true" /> Return to kiosk
+                <a className="button secondary full" href={originalOrder?.statusUrl || '/'}>
+                  <ArrowLeft size={18} aria-hidden="true" /> {originalOrder ? 'Track print order' : 'Return to kiosk'}
                 </a>
               ) : (
                 <form className="payment-actions" onSubmit={(event) => { event.preventDefault(); simulate('success'); }}>
@@ -197,6 +198,16 @@ function PrintMessage({ status }) {
   return <p className="muted">{messages[status] || 'Waiting for a print status update.'}</p>;
 }
 
+function reviewedOrder(orderId) {
+  try {
+    const record = JSON.parse(sessionStorage.getItem('kiosk-reviewed-order'));
+    const url = new URL(record.statusUrl, window.location.origin);
+    if (record.orderId === orderId && url.origin === window.location.origin &&
+        url.pathname === '/orders/' + orderId) return { ...record, statusUrl: url.href };
+  } catch { /* A receipt/status link remains available in the original order tab. */ }
+  return null;
+}
+
 const terminalPrintStates = ['COMPLETED', 'COMPLETION_UNCONFIRMED', 'CANCELLED'];
 const shouldPollOrder = (order) =>
   order.paymentStatus !== 'FAILED' && !terminalPrintStates.includes(order.printStatus);
@@ -213,6 +224,7 @@ export function OrderStatus({ id, accessKey, online }) {
   const order = live.connected ? live.value : resource.value || live.value;
   const failed = order?.paymentStatus === 'FAILED';
   const paid = order?.paymentStatus === 'TEST_PAID';
+  const scannedOrder = order && reviewedOrder(order.id);
 
   return (
     <>
@@ -279,6 +291,7 @@ export function OrderStatus({ id, accessKey, online }) {
                 )}
                 {!paid && !failed && (
                   <>
+                    {scannedOrder?.sessionId && <a className="button secondary full" href={'/scan?session=' + encodeURIComponent(scannedOrder.sessionId)}>Scan kiosk payment QR</a>}
                     <div className="payment-qr">
                       <img
                         src={order.paymentQrUrl}

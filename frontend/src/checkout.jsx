@@ -351,10 +351,11 @@ function SettingsStep({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [review, setReview] = useState(false);
+  const [reviewedOrder, setReviewedOrder] = useState(null);
   const orderKey = useRef(null);
   useEffect(() => {
-    activity?.report(review ? 'REVIEW' : 'SETTINGS', documents.length);
-  }, [activity, review, documents.length]);
+    if (!reviewedOrder) activity?.report(review ? 'REVIEW' : 'SETTINGS', documents.length);
+  }, [activity, review, documents.length, reviewedOrder]);
   const document = documents.find((item) => item.id === previewId) ?? documents[0];
   const range = ranges[document.id] ?? allPages;
   const items = documents.map((item) => ({
@@ -412,7 +413,12 @@ function SettingsStep({
     setCreating(true);
     setError('');
     try {
-      const sessionId = await activity?.session();
+      if (orderKey.current?.input !== input) orderKey.current = { input, key: requestKey() };
+      if (!orderKey.current.sessionReady) {
+        orderKey.current.sessionId = await activity?.session();
+        orderKey.current.sessionReady = true;
+      }
+      const sessionId = orderKey.current.sessionId;
       const order = await api('/api/orders', {
         method: 'POST',
         headers: { 'Idempotency-Key': orderKey.current.key },
@@ -421,23 +427,51 @@ function SettingsStep({
           ...(sessionId ? { sessionId } : {}),
         },
       });
-      activity?.complete();
-      window.location.assign(localLink(order.statusUrl));
+      setReviewedOrder({ ...order, sessionId });
+      setReview(true);
+      if (sessionId) sessionStorage.setItem('kiosk-reviewed-order', JSON.stringify({ sessionId, orderId: order.id, statusUrl: localLink(order.statusUrl) }));
+      window.scrollTo({ top: 0 });
     } catch (problem) {
       setError(problem.message);
       setCreating(false);
       if (problem.status === 409) {
+        orderKey.current = null;
         setReview(false);
         setQuoteResult(null);
         setQuoteRevision((value) => value + 1);
       }
+    } finally {
+      setCreating(false);
     }
+  }
+
+  async function editReview() {
+    if (!reviewedOrder || creating) return;
+    setCreating(true);
+    setError('');
+    try {
+      const key = new URL(reviewedOrder.statusUrl).searchParams.get('key');
+      await api('/api/orders/' + reviewedOrder.id + '/cancel-review', { method: 'POST', body: { key } });
+      setReviewedOrder(null);
+      orderKey.current = null;
+      setReview(false);
+    } catch (problem) {
+      setError(problem.message);
+      if (problem.status === 409) window.location.assign(localLink(reviewedOrder.statusUrl));
+    } finally { setCreating(false); }
+  }
+
+  function continuePayment(event) {
+    event.preventDefault();
+    if (!reviewedOrder) return;
+    activity?.complete();
+    window.location.assign(localLink(reviewedOrder.statusUrl));
   }
 
   if (review) {
     return (
-      <form className="card upload-card review-card" onSubmit={create}>
-        <button className="text-button" type="button" onClick={() => setReview(false)} disabled={creating}>
+      <form className="card upload-card review-card" onSubmit={continuePayment}>
+        <button className="text-button" type="button" onClick={editReview} disabled={creating}>
           <ChevronLeft size={18} aria-hidden="true" /> Edit settings
         </button>
         <h1>Review your order</h1>
@@ -470,7 +504,8 @@ function SettingsStep({
         )}
         {!online && <p className="muted">Reconnect to continue to payment.</p>}
         <ErrorMessage message={error} />
-        <button className="button primary full" type="submit" disabled={creating || !quote || !online}>
+        {reviewedOrder?.sessionId && <a className="button primary full" href={'/scan?session=' + encodeURIComponent(reviewedOrder.sessionId)}>Scan kiosk payment QR</a>}
+        <button className="button secondary full" type="submit" disabled={creating || !reviewedOrder || !online}>
           {creating ? 'Creating order…' : 'Continue to payment'}
           <ArrowRight size={19} aria-hidden="true" />
         </button>
@@ -526,14 +561,7 @@ function SettingsStep({
         </section>
         <form
           className="card settings-card"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (quote) {
-              if (orderKey.current?.input !== input) orderKey.current = { input, key: requestKey() };
-              setReview(true);
-              window.scrollTo({ top: 0 });
-            }
-          }}
+          onSubmit={create}
         >
           <div className="section-heading">
             <span className="feature-icon">
@@ -638,8 +666,8 @@ function SettingsStep({
             </p>
           )}
           {canQuote && !matchingQuote && <Loading>Calculating price…</Loading>}
-          <button className="button primary full" type="submit" disabled={!quote}>
-            Review order
+          <button className="button primary full" type="submit" disabled={!quote || creating}>
+            {creating ? 'Preparing payment QR�' : 'Review order'}
             <ArrowRight size={19} aria-hidden="true" />
           </button>
         </form>

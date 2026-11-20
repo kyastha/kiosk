@@ -69,6 +69,40 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /api/kiosk/scan-payment:
+    post:
+      summary: Validate a scanned payment reference against the browser-owned checkout session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, reference]
+              properties:
+                sessionId: { type: string, format: uuid }
+                reference: { type: string }
+      responses:
+        '200': { description: Canonical paymentUrl, immutable total and orderId }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '410': { $ref: '#/components/responses/Error' }
+  /api/orders/{id}/cancel-review:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      summary: Invalidate this browser's unpaid reviewed order before editing settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string }
+      responses:
+        '200': { description: Cancelled review and detached activity session }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /api/documents:
     post:
       summary: Convert and store a private document for this browser

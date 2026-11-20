@@ -8,6 +8,7 @@ import './styles.css';
 const Admin = lazy(() => import('./admin.jsx'));
 const Kiosk = lazy(() => import('./kiosk.jsx'));
 const PrinterDisplay = lazy(() => import('./printer-display.jsx'));
+const Scanner = lazy(() => import('./scanner.jsx'));
 
 function App() {
   const [online, setOnline] = useState(navigator.onLine);
@@ -27,6 +28,7 @@ function App() {
   if (path[0] === 'admin') view = <Admin online={online} />;
   if (kiosk) view = <Kiosk online={online} />;
   if (path[0] === 'printer') view = <PrinterDisplay online={online} />;
+  if (path[0] === 'scan') view = <Scanner online={online} />;
   if (['pay', 'payment'].includes(path[0])) view = <Payment reference={path[1] || ''} online={online} />;
   if (['order', 'orders'].includes(path[0])) {
     const key = new URLSearchParams(window.location.search).get('key');
