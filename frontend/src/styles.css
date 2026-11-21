@@ -6,18 +6,19 @@
     -apple-system,
     BlinkMacSystemFont,
     sans-serif;
-  color: #172520;
-  background: #f5f7f6;
+  color: #080b12;
+  background: #f6f8ff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --ink: #172520;
-  --muted: #52655e;
-  --green: #12544a;
-  --green-dark: #0b4038;
-  --line: #dce6e1;
-  --tint: #e9f4ef;
+  --ink: #080b12;
+  --muted: #526078;
+  --accent: #164dff;
+  --green: var(--accent);
+  --green-dark: #103bd0;
+  --line: #d6ddec;
+  --tint: #e9eeff;
   --surface: #fff;
-  --shadow: 0 2px 3px #173b2910, 0 10px 28px #173b2909;
+  --shadow: 0 2px 4px #283c6c08, 0 10px 28px #283c6c09;
 }
 
 *,
@@ -61,7 +62,7 @@ select,
   outline-offset: 3px;
 }
 :focus-visible {
-  outline: 3px solid #1b7766;
+  outline: 3px solid var(--accent);
 }
 h1,
 h2,
@@ -124,7 +125,7 @@ svg {
 }
 .topbar-inner,
 .shell {
-  width: min(1080px, calc(100% - 48px));
+  width: min(1200px, calc(100% - 64px));
   margin: 0 auto;
 }
 .topbar-inner {
@@ -144,13 +145,13 @@ svg {
 }
 .brand-mark {
   flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   color: white;
   border-radius: 12px;
-  background: var(--green);
+  background: #07090d;
 }
 .brand-text {
   display: grid;
@@ -159,8 +160,10 @@ svg {
 }
 .brand-text strong {
   letter-spacing: -0.02em;
+  font-size: 1.15rem;
 }
 .brand-text small {
+  font-size: .9rem;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -446,14 +449,14 @@ svg {
   min-width: 0;
   min-height: 46px;
   padding: 9px 11px;
-  border: 1px solid #bccdc5;
+  border: 1px solid #c5cddb;
   background: #fff;
   border-radius: 9px;
   font-size: 1rem;
   font-weight: 500;
 }
 .field input::placeholder {
-  color: #64766d;
+  color: #68758a;
   opacity: 1;
 }
 .field input:disabled {
@@ -468,7 +471,7 @@ svg {
 .input-icon > svg {
   position: absolute;
   left: 12px;
-  color: #537567;
+  color: #7c879b;
 }
 .input-icon input {
   padding-left: 37px;
@@ -570,10 +573,10 @@ svg {
 }
 .button.primary {
   color: #fff;
-  background: var(--green);
+  background: #090b10;
 }
 .button.primary:hover:not(:disabled) {
-  background: var(--green-dark);
+  background: #252b38;
 }
 .button.secondary {
   color: var(--green);

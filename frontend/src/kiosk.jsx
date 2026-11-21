@@ -1,10 +1,11 @@
 import {
   Check, CheckCheck, CircleX, ClipboardCheck, Files, Maximize, Minimize,
-  Printer, QrCode, ScanLine, Settings2, Smartphone,
+  Link2, Printer, QrCode, ScanLine, Settings2, Smartphone,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api, money, statusLabels, TEST_LABEL } from './api.js';
 import { useLiveSnapshot } from './live.js';
+import { PrinterArtwork } from './print-artwork.jsx';
 import './kiosk.css';
 
 const confirmationMs = 3000;
@@ -99,17 +100,21 @@ function PaymentQr({ order }) {
     <section className="kiosk-qr-card kiosk-payment-card" aria-label="Order test payment QR">
       <div className="kiosk-qr-tag"><QrCode size={15} aria-hidden="true" /> Payment for this order</div>
       <strong className="kiosk-payment-total">{money(order.total)}</strong>
-      <img
-        key={order.paymentQrUrl}
-        src={order.paymentQrUrl}
-        width="280"
-        height="280"
-        alt="Scan this QR code for the current test payment"
-        onLoad={() => setError(false)}
-        onError={() => setError(true)}
-      />
-      <p>{error ? 'The payment QR could not load. Refresh the kiosk screen.' : 'Photograph this QR to continue to test payment'}</p>
-      <small>{TEST_LABEL}</small>
+      <div className="kiosk-qr-frame">
+        <span aria-hidden="true" />
+        <img
+          key={order.paymentQrUrl}
+          src={order.paymentQrUrl}
+          width="280"
+          height="280"
+          alt="Scan this QR code for the current test payment"
+          onLoad={() => setError(false)}
+          onError={() => setError(true)}
+        />
+      </div>
+      <p>{error ? 'The payment QR could not load. Refresh the kiosk screen.' : 'Scan this QR with your phone’s live camera'}</p>
+      <div className="kiosk-qr-tear" aria-hidden="true" />
+      <small className="kiosk-test-payment-label">{TEST_LABEL}</small>
     </section>
   );
 }
@@ -167,7 +172,7 @@ export default function Kiosk({ online }) {
   }
 
   return (
-    <main className="kiosk-display" id="main" ref={display}>
+    <main className="kiosk-display" id="main" ref={display} data-phase={phase} data-printing={Boolean(value?.printingOrder)}>
       <header className="kiosk-top">
         <div className="kiosk-brand">
           <span><Printer size={23} aria-hidden="true" /></span>
@@ -181,13 +186,15 @@ export default function Kiosk({ online }) {
       {fullscreenError && <p className="kiosk-fullscreen-error" role="status">Use your browser’s fullscreen command.</p>}
       <div className="kiosk-content">
         <section className="kiosk-copy">
-          <p className="kiosk-eyebrow">SCAN / UPLOAD / PRINT</p>
+          <p className="kiosk-eyebrow">SCHOOL PRINTING</p>
           <h1>Print from<br /> your phone.</h1>
-          <p className="kiosk-lede">Scan the access QR, then use your phone to prepare your print.</p>
+          <p className="kiosk-lede">Scan the QR code, then use your phone to prepare your print.</p>
+          <div className="kiosk-artwork-wrap"><PrinterArtwork phone compact className="kiosk-artwork" /></div>
           <div className="kiosk-status" data-phase={phase} aria-live="polite">
             <div className="kiosk-status-inner" key={phase}>
               <span className="kiosk-status-icon"><Icon size={21} aria-hidden="true" /></span>
               <div><h2>{title}</h2><p>{description}</p></div>
+              {(phase === 'idle' || phase === 'paid') && <span className="kiosk-status-check"><Check size={22} aria-hidden="true" /></span>}
             </div>
           </div>
           <JourneyMap
@@ -200,17 +207,21 @@ export default function Kiosk({ online }) {
         </section>
         <div className="kiosk-qr-grid" data-payment={Boolean(pendingPayment)}>
           {!pendingPayment && <section className="kiosk-qr-card" aria-label="Permanent kiosk access QR">
-            <div className="kiosk-qr-tag"><Smartphone size={15} aria-hidden="true" /> Start here · Access QR</div>
-            <img
-              src="/api/kiosk/qr"
-              width="320"
-              height="320"
-              alt="Scan this QR code to start printing"
-              onError={() => setQrError(true)}
-              onLoad={() => setQrError(false)}
-            />
+            <div className="kiosk-qr-tag"><Smartphone size={20} aria-hidden="true" /> Scan here · Access QR</div>
+            <div className="kiosk-qr-frame">
+              <span aria-hidden="true" />
+              <img
+                src="/api/kiosk/qr"
+                width="320"
+                height="320"
+                alt="Scan this QR code to start printing"
+                onError={() => setQrError(true)}
+                onLoad={() => setQrError(false)}
+              />
+            </div>
             {qrError ? <p role="status">The QR could not load. Refresh to try again.</p> : <p>Open your phone camera to begin</p>}
-            {config?.onboardingUrl && <small>{new URL(config.onboardingUrl).host}</small>}
+            <div className="kiosk-qr-tear" aria-hidden="true" />
+            {config?.onboardingUrl && <small className="kiosk-url-pill"><Link2 size={20} aria-hidden="true" />{new URL(config.onboardingUrl).host}</small>}
           </section>}
           {pendingPayment && <PaymentQr key={order.id} order={order} />}
         </div>

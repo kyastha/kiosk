@@ -1,0 +1,14 @@
+{
+  "name": "kiosk-print-agent",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1"
+  }
+}

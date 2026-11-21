@@ -1,0 +1,1 @@
+ALTER TABLE payments ADD COLUMN pin_attempts INTEGER NOT NULL DEFAULT 0 CHECK(pin_attempts BETWEEN 0 AND 5);

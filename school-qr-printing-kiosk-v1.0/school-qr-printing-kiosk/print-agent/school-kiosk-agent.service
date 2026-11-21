@@ -1,0 +1,28 @@
+[Unit]
+Description=School printing kiosk agent
+After=network-online.target cups.service
+Wants=network-online.target cups.service
+
+[Service]
+Type=simple
+User=kiosk-print
+Group=kiosk-print
+WorkingDirectory=/opt/school-kiosk
+EnvironmentFile=/etc/school-kiosk/agent.env
+Environment=AGENT_STATE_DIR=/var/lib/school-kiosk-agent
+ExecStart=/usr/bin/node /opt/school-kiosk/print-agent/src/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=180
+StateDirectory=school-kiosk-agent
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

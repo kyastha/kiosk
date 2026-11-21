@@ -1,0 +1,81 @@
+.cart-files {
+  margin-top: 14px;
+}
+
+.cart-files p {
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.cart-files ul,
+.cart-review {
+  display: grid;
+  gap: 7px;
+  padding: 0;
+  margin: 8px 0 0;
+  list-style: none;
+}
+
+.cart-files li,
+.cart-review li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 0.88rem;
+}
+
+.cart-files li > svg {
+  color: var(--green);
+}
+
+.cart-files li > span,
+.cart-review li > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cart-files li > button {
+  flex-shrink: 0;
+}
+
+.cart-previews {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 4px 9px;
+}
+
+.cart-previews .button {
+  flex-shrink: 0;
+  max-width: 85%;
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
+}
+
+.cart-previews .button[aria-pressed='true'] {
+  background: var(--tint);
+  border-color: var(--green);
+}
+
+.cart-review {
+  margin: 15px 0 0;
+}
+
+.cart-review li {
+  padding: 9px 11px;
+}
+
+.cart-review li > strong {
+  flex-shrink: 0;
+}
+
+.cart-review small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+}

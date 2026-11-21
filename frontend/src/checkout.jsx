@@ -1,14 +1,13 @@
 import {
   ArrowRight,
   Camera,
-  Check,
   ChevronLeft,
   ChevronRight,
   CloudDownload,
   FileText,
   LockKeyhole,
   Printer,
-  ScanLine,
+  ReceiptText,
   Trash2,
   Upload,
   UserRound,
@@ -17,7 +16,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { api, localLink, money, orderInfo } from './api.js';
 import { Details, ErrorMessage, Footer, Header, Loading } from './ui.jsx';
 import { useKioskActivity } from './activity.js';
+import { PrinterArtwork, ReceiptArtwork } from './print-artwork.jsx';
 import './cart.css';
+import './checkout.css';
 
 const Preview = lazy(() => import('./preview.jsx'));
 const fileExtensions = [
@@ -47,34 +48,15 @@ function requestKey() {
   ).join('');
 }
 
-function Progress({ step }) {
-  return (
-    <ol className="progress" aria-label="Print order progress">
-      {['Upload', 'Print settings', 'Payment'].map((name, index) => (
-        <li
-          key={name}
-          className={step >= index ? 'step-active' : ''}
-          aria-current={step === index ? 'step' : undefined}
-        >
-          <span>{step > index ? <Check size={15} aria-hidden="true" /> : index + 1}</span>
-          {name}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 function Welcome({ config }) {
   return (
     <section className="hero" aria-labelledby="welcome">
       <div className="hero-copy">
         <p className="eyebrow">
-          <span className="live-dot" /> STUDENT &amp; STAFF PRINTING
+          STUDENT &amp; STAFF PRINTING
         </p>
         <h1 id="welcome">
-          Print from
-          <br />
-          your phone.
+          Print from your phone.
         </h1>
         <p className="hero-caption">
           Upload your files, choose your settings and collect your pages at the school kiosk.
@@ -84,26 +66,7 @@ function Welcome({ config }) {
           {config && <span>{money(config.pricePerPage)} per page</span>}
         </div>
       </div>
-      <div className="hero-art" aria-hidden="true">
-        <div className="orbit orbit-outer" />
-        <div className="orbit orbit-inner" />
-        <div className="art-paper">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="art-printer">
-          <i />
-          <b />
-        </div>
-        <div className="art-output">
-          <span />
-          <span />
-        </div>
-        <span className="art-scan">
-          <ScanLine size={23} />
-        </span>
-      </div>
+      <PrinterArtwork className="welcome-printer" />
     </section>
   );
 }
@@ -329,6 +292,9 @@ function UploadStep({ config, customerName, setName, online, cart, setCart, onCo
         {cart.length > 1 ? 'Preview documents' : 'Preview document'}
         <ArrowRight size={19} aria-hidden="true" />
       </button>
+      <p className="privacy-note upload-privacy">
+        <LockKeyhole size={18} aria-hidden="true" /> No school account required. Your files stay private.
+      </p>
     </form>
   );
 }
@@ -464,56 +430,65 @@ function SettingsStep({
 
   if (review) {
     return (
-      <section className="card upload-card review-card">
-        <button className="text-button" type="button" onClick={editReview} disabled={creating}>
+      <div className="review-layout">
+        <button className="text-button back-button" type="button" onClick={editReview} disabled={creating}>
           <ChevronLeft size={18} aria-hidden="true" /> Edit settings
         </button>
-        <h1>Review your order</h1>
-        <p className="muted">Confirm your files, settings and price.</p>
-        {quote && (
-          <>
-            {multiple && (
-              <ul className="cart-review" role="list" aria-label="Files in your order">
-                {quote.items.map((item, index) => (
-                  <li key={documents[index].id}>
-                    <div>
-                      <strong>{item.fileName}</strong>
-                      <small>
-                        {item.pageRanges ? 'Pages ' + item.pageRanges : 'All pages'}
-                        {' · '}
-                        {item.printablePages} selected
-                      </small>
-                    </div>
-                    <strong>{money(item.total)}</strong>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Details rows={orderInfo({ ...quote, customerName, fileName: document.fileName })} />
-            <div className="price-row">
-              <span>Total</span>
-              <strong>{money(quote.total)}</strong>
+        <section className="card review-card receipt-card">
+          <div className="review-content">
+            <div className="review-heading">
+              <div>
+                <p className="eyebrow review-eyebrow"><span className="feature-icon"><ReceiptText size={24} aria-hidden="true" /></span> ORDER REVIEW</p>
+                <h1>Review your order</h1>
+                <p className="muted">Confirm your files, settings and price.</p>
+              </div>
+              <ReceiptArtwork />
             </div>
-          </>
-        )}
-        {!online && <p className="muted">Reconnect to continue to payment.</p>}
-        <ErrorMessage message={error} />
-        {reviewedOrder?.sessionId ? (
-          <div>
-            <button
-              type="button"
-              className="button primary full"
-              disabled={!online || creating}
-              onClick={() => window.location.assign('/scan?session=' + encodeURIComponent(reviewedOrder.sessionId))}
-            >
-              <Camera size={19} aria-hidden="true" /> Continue to pay
-            </button>
-            <p className="price-note">Open the live camera scanner and point it at the payment QR on the kiosk screen.</p>
+            {quote && (
+              <>
+                {multiple && (
+                  <ul className="cart-review" role="list" aria-label="Files in your order">
+                    {quote.items.map((item, index) => (
+                      <li key={documents[index].id}>
+                        <div>
+                          <strong>{item.fileName}</strong>
+                          <small>
+                            {item.pageRanges ? 'Pages ' + item.pageRanges : 'All pages'}
+                            {' · '}
+                            {item.printablePages} selected
+                          </small>
+                        </div>
+                        <strong>{money(item.total)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Details rows={orderInfo({ ...quote, customerName, fileName: document.fileName })} />
+              </>
+            )}
           </div>
-        ) : (
-          <a className="button primary full" href={reviewedOrder && localLink(reviewedOrder.statusUrl)}>View order</a>
-        )}
-      </section>
+          <div className="receipt-footer review-footer">
+            {quote && <div className="price-row"><span>Total</span><strong>{money(quote.total)}</strong></div>}
+            {!online && <p className="muted">Reconnect to continue to payment.</p>}
+            <ErrorMessage message={error} />
+            {reviewedOrder?.sessionId ? (
+              <div>
+                <button
+                  type="button"
+                  className="button primary full"
+                  disabled={!online || creating}
+                  onClick={() => window.location.assign('/scan?session=' + encodeURIComponent(reviewedOrder.sessionId))}
+                >
+                  <Camera size={19} aria-hidden="true" /> Continue to pay
+                </button>
+                <p className="price-note">Open the live camera scanner and point it at the payment QR on the kiosk screen.</p>
+              </div>
+            ) : (
+              <a className="button primary full" href={reviewedOrder && localLink(reviewedOrder.statusUrl)}>View order</a>
+            )}
+          </div>
+        </section>
+      </div>
     );
   }
 
@@ -522,14 +497,17 @@ function SettingsStep({
       <button type="button" className="text-button back-button" onClick={onBack}>
         <ChevronLeft size={18} aria-hidden="true" /> {multiple ? 'Change files' : 'Change document'}
       </button>
-      <div className="page-heading">
-        <p className="eyebrow">PRINT SETUP</p>
-        <h1>Preview and configure</h1>
-        <p>
-          {multiple
-            ? 'Check each file and choose its pages. Other settings apply to all files.'
-            : 'Check your document and select what to print.'}
-        </p>
+      <div className="page-heading setup-heading">
+        <div>
+          <p className="eyebrow">PRINT SETUP</p>
+          <h1>Preview and configure</h1>
+          <p>
+            {multiple
+              ? 'Check each file and choose its pages. Other settings apply to all files.'
+              : 'Check your document and select what to print.'}
+          </p>
+        </div>
+        <PrinterArtwork compact className="setup-printer" />
       </div>
       <div className="setup-grid">
         <section className="card preview-card" aria-labelledby="preview-heading">
@@ -564,7 +542,7 @@ function SettingsStep({
           </Suspense>
         </section>
         <form
-          className="card settings-card"
+          className="card settings-card receipt-card"
           onSubmit={create}
         >
           <div className="section-heading">
@@ -653,27 +631,31 @@ function SettingsStep({
               />
             </label>
           )}
-          <div className="price-row" aria-live="polite">
-            <span>Estimated total</span>
-            <strong>{quote ? money(quote.total) : '—'}</strong>
+          <div className="receipt-footer settings-footer">
+            <div className="estimate-box" aria-live="polite">
+              <div className="price-row">
+                <span>Estimated total</span>
+                <strong>{quote ? money(quote.total) : '—'}</strong>
+              </div>
+              {quote && (
+                <p className="price-note">
+                  {quote.printablePages} {quote.printablePages === 1 ? 'page' : 'pages'} × {quote.copies}{' '}
+                  {quote.copies === 1 ? 'copy' : 'copies'} × {money(quote.pricePerPage)}
+                </p>
+              )}
+            </div>
+            <ErrorMessage message={error || (canQuote && matchingQuote?.error)} />
+            {missingRange && (
+              <p className="price-note">
+                Enter a page range for {missingRange.fileName} to calculate the total.
+              </p>
+            )}
+            {canQuote && !matchingQuote && <Loading>Calculating price…</Loading>}
+            <button className="button primary full" type="submit" disabled={!quote || creating}>
+              {creating ? 'Preparing payment QR…' : 'Review order'}
+              <ArrowRight size={19} aria-hidden="true" />
+            </button>
           </div>
-          {quote && (
-            <p className="price-note">
-              {quote.printablePages} {quote.printablePages === 1 ? 'page' : 'pages'} × {quote.copies}{' '}
-              {quote.copies === 1 ? 'copy' : 'copies'} × {money(quote.pricePerPage)}
-            </p>
-          )}
-          <ErrorMessage message={error || (canQuote && matchingQuote?.error)} />
-          {missingRange && (
-            <p className="price-note">
-              Enter a page range for {missingRange.fileName} to calculate the total.
-            </p>
-          )}
-          {canQuote && !matchingQuote && <Loading>Calculating price…</Loading>}
-          <button className="button primary full" type="submit" disabled={!quote || creating}>
-            {creating ? 'Preparing payment QR…' : 'Review order'}
-            <ArrowRight size={19} aria-hidden="true" />
-          </button>
         </form>
       </div>
     </>
@@ -717,7 +699,6 @@ export function Checkout({ online }) {
       <Header schoolName={config?.schoolName} />
       <main className="shell checkout" id="main" tabIndex={-1}>
         {!settingsOpen && <Welcome config={config} />}
-        <Progress step={settingsOpen ? 1 : 0} />
         <ErrorMessage message={error}>
           <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>
             Try again <ChevronRight size={17} aria-hidden="true" />
@@ -737,37 +718,6 @@ export function Checkout({ online }) {
                 onContinue={() => changeStep(true)}
                 activity={activity}
               />
-              <aside className="how-card">
-                <p className="eyebrow">HOW IT WORKS</p>
-                <h2>Ready in three steps</h2>
-                <ol>
-                  <li>
-                    <span>01</span>
-                    <div>
-                      <strong>Add your files</strong>
-                      <p>Upload one or more files from your device.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span>02</span>
-                    <div>
-                      <strong>Review your print</strong>
-                      <p>Check the PDF, pages, copies and price.</p>
-                    </div>
-                  </li>
-                  <li>
-                    <span>03</span>
-                    <div>
-                      <strong>Test pay and collect</strong>
-                      <p>Track your job and download your receipt.</p>
-                    </div>
-                  </li>
-                </ol>
-                <p className="privacy-note">
-                  <LockKeyhole size={16} aria-hidden="true" /> No school account required. Your files stay
-                  private.
-                </p>
-              </aside>
             </div>
           ) : (
             <SettingsStep
