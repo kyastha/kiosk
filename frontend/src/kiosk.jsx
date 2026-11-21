@@ -1,6 +1,6 @@
 import {
-  Check, CheckCheck, CircleX, ClipboardCheck, Files, Maximize, Minimize,
-  Link2, Printer, QrCode, ScanLine, Settings2, Smartphone,
+  Check, CircleX, ClipboardCheck, Files, Maximize, Minimize,
+  Link2, Printer, QrCode, Settings2, Smartphone,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api, money, statusLabels, TEST_LABEL } from './api.js';
@@ -21,12 +21,12 @@ const displayStates = {
   failed: ['Test payment ended', 'Scan again to start a new print order.', CircleX],
 };
 const steps = [
-  ['Scan', ScanLine, 'Scan the permanent access QR with your phone camera to begin.'],
-  ['Files', Files, 'Enter your name and select up to eight files on your phone.'],
-  ['Settings', Settings2, 'Preview each file and choose pages, copies, orientation and scaling.'],
-  ['Review', ClipboardCheck, 'Check every file and the total price before continuing.'],
-  ['Test payment', QrCode, 'Continue to pay opens the live camera scanner. Point it at the payment QR, then enter the demo PIN on your phone.'],
-  ['Printing', Printer, 'Follow the print queue and collect your pages when the printer reports completion.'],
+  ['Scan', 'Scan the permanent access QR with your phone camera to begin.'],
+  ['Files', 'Enter your name and select up to eight files on your phone.'],
+  ['Settings', 'Preview each file and choose pages, copies, orientation and scaling.'],
+  ['Review', 'Check every file and the total price before continuing.'],
+  ['Test payment', 'Continue to pay opens the live camera scanner. Point it at the payment QR, then enter the demo PIN on your phone.'],
+  ['Printing', 'Follow the print queue and collect your pages when the printer reports completion.'],
 ];
 const journeyStages = { SCANNED: 0, SELECTING: 1, UPLOADING: 1, SETTINGS: 2, REVIEW: 3, pending: 4, paid: 5, failed: 4 };
 
@@ -53,38 +53,37 @@ function useDisplayPhase(activity, order) {
   return displayStates[activity?.stage] ? activity.stage : 'idle';
 }
 
-function JourneyMap({ phase, activity, journeyKey }) {
-  const [selection, setSelection] = useState(null);
+function Workflow({ phase, activity }) {
   const current = journeyStages[phase] ?? 0;
-  const selected = selection?.journeyKey === journeyKey ? selection.index : current;
-  const [label, , detail] = steps[selected];
+  const [selection, setSelection] = useState(null);
+  const selected = selection ?? current;
+  const [, detail] = steps[selected];
   const count = activity?.fileCount;
 
   return (
-    <section className="kiosk-journey" aria-labelledby="journey-title">
-      <div className="kiosk-section-title">
-        <h2 id="journey-title">Your print journey</h2>
-        <span>Tap a step to explore</span>
+    <section className="kiosk-workflow" aria-labelledby="workflow-title">
+      <div className="kiosk-workflow-heading">
+        <h2 id="workflow-title">Print workflow</h2>
+        <span>Step {current + 1} of {steps.length}</span>
       </div>
-      <ol className="kiosk-map" aria-label="Print journey">
-        {steps.map(([name, Icon], index) => (
-          <li key={name} data-reached={phase !== 'idle' && index < current} data-active={index === current}>
+      <ol className="kiosk-workflow-steps" aria-label="Print workflow">
+        {steps.map(([name], index) => (
+          <li key={name} data-state={index === current ? 'active' : index < current ? 'complete' : 'upcoming'}>
             <button
               type="button"
+              aria-label={name}
               aria-current={index === current ? 'step' : undefined}
               aria-pressed={selected === index}
-              aria-controls="journey-detail"
-              onClick={() => setSelection({ journeyKey, index })}
+              aria-controls="workflow-detail"
+              onClick={() => setSelection(index)}
             >
-              <span className="kiosk-map-icon"><Icon size={20} aria-hidden="true" /></span>
+              <span className="kiosk-workflow-number" aria-hidden="true">{index + 1}</span>
               <span>{name}</span>
-              {phase !== 'idle' && index < current && <CheckCheck className="kiosk-step-done" size={14} aria-hidden="true" />}
             </button>
           </li>
         ))}
       </ol>
-      <div id="journey-detail" className="kiosk-map-detail" role="region" aria-label="Step details">
-        <strong>{label}</strong>
+      <div id="workflow-detail" className="kiosk-workflow-detail" role="region" aria-label="Step details">
         <p>{detail}</p>
         {selected === 1 && count > 0 && phase !== 'idle' && (
           <small>{count} {count === 1 ? 'file selected' : 'files selected'}</small>
@@ -173,17 +172,6 @@ export default function Kiosk({ online }) {
 
   return (
     <main className="kiosk-display" id="main" ref={display} data-phase={phase} data-printing={Boolean(value?.printingOrder)}>
-      <header className="kiosk-top">
-        <div className="kiosk-brand">
-          <span><Printer size={23} aria-hidden="true" /></span>
-          <div><strong>{config?.schoolName || 'School Printing Service'}</strong><small>Self-service printing</small></div>
-        </div>
-        <button type="button" className="kiosk-fullscreen" onClick={toggleFullscreen}>
-          {fullscreen ? <Minimize size={18} aria-hidden="true" /> : <Maximize size={18} aria-hidden="true" />}
-          {fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-        </button>
-      </header>
-      {fullscreenError && <p className="kiosk-fullscreen-error" role="status">Use your browser’s fullscreen command.</p>}
       <div className="kiosk-content">
         <section className="kiosk-copy">
           <p className="kiosk-eyebrow">SCHOOL PRINTING</p>
@@ -197,11 +185,10 @@ export default function Kiosk({ online }) {
               {(phase === 'idle' || phase === 'paid') && <span className="kiosk-status-check"><Check size={22} aria-hidden="true" /></span>}
             </div>
           </div>
-          <JourneyMap
-            key={phase === 'idle' ? 'idle' : journeyKey}
+          <Workflow
+            key={journeyKey + ':' + phase}
             phase={phase}
             activity={activity}
-            journeyKey={phase === 'idle' ? 'idle' : journeyKey}
           />
           <PrintingStatus order={value?.printingOrder} connected={connected} />
         </section>
@@ -230,7 +217,14 @@ export default function Kiosk({ online }) {
         <span className="kiosk-connection" data-connected={connected}>
           <span aria-hidden="true" />{connected ? 'Live updates' : online ? 'Connecting to live updates' : 'Offline'}
         </span>
-        <span>{TEST_LABEL}</span>
+        <div className="kiosk-controls">
+          {fullscreenError && <span className="kiosk-fullscreen-error" role="status">Use your browser’s fullscreen command.</span>}
+          <span>{TEST_LABEL}</span>
+          <button type="button" className="kiosk-fullscreen" onClick={toggleFullscreen}>
+            {fullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
+            {fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          </button>
+        </div>
       </footer>
     </main>
   );

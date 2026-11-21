@@ -5,7 +5,7 @@
   --kiosk-line: #d4dbea;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   min-height: 100vh;
   min-height: 100svh;
   padding: 18px 28px 16px;
@@ -13,56 +13,30 @@
   background: radial-gradient(ellipse at 48% 46%, #eef0ff 0, transparent 59%), #f7f8fd;
 }
 .kiosk-display:fullscreen { overflow: auto; }
-.kiosk-top,
 .kiosk-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
 }
-.kiosk-top {
-  min-height: 66px;
-  padding: 0 10px 15px;
-  border-bottom: 1px solid #cbd3e4;
-}
-.kiosk-brand {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 14px;
-}
-.kiosk-brand > span {
-  display: grid;
-  place-items: center;
-  flex: 0 0 48px;
-  height: 48px;
-  border-radius: 13px;
-  color: white;
-  background: #080b12;
-  box-shadow: inset 0 0 9px #ffffff17;
-}
-.kiosk-brand > span svg { width: 28px; height: 28px; }
-.kiosk-brand strong,
-.kiosk-brand small { display: block; overflow-wrap: anywhere; }
-.kiosk-brand strong { font-size: clamp(1rem, 1.65vw, 1.5rem); letter-spacing: -.035em; line-height: 1.15; }
-.kiosk-brand small { margin-top: 4px; color: var(--kiosk-muted); font-size: .98rem; font-weight: 550; }
 .kiosk-fullscreen {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   flex-shrink: 0;
-  min-height: 44px;
-  padding: 0 16px;
+  min-height: 32px;
+  padding: 4px 9px;
   border: 1px solid #b9c4db;
-  border-radius: 13px;
+  border-radius: 8px;
   color: #1b2437;
   background: #ffffff70;
-  font-size: .96rem;
+  font-size: .8125rem;
   font-weight: 600;
 }
 .kiosk-fullscreen:hover { background: white; }
 .kiosk-display button:focus-visible { outline-color: var(--kiosk-blue); }
-.kiosk-fullscreen-error { align-self: flex-end; color: var(--kiosk-muted); font-size: .85rem; }
+.kiosk-fullscreen-error { color: var(--kiosk-muted); }
+.kiosk-controls { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
 .kiosk-content {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
@@ -97,7 +71,7 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  height: 124px;
+  height: 112px;
   margin: 5px 0;
 }
 .kiosk-artwork {
@@ -253,50 +227,56 @@
 .kiosk-payment-total { font-size: 2.3rem; line-height: 1; letter-spacing: -.05em; color: var(--kiosk-blue); }
 .kiosk-payment-card .kiosk-qr-frame { width: min(calc(100% - 80px), 340px, 40vh); }
 .kiosk-test-payment-label { max-width: calc(100% - 36px); color: var(--kiosk-muted); font-size: .75rem; font-weight: 750; }
-.kiosk-journey { margin-top: 13px; }
-.kiosk-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.kiosk-section-title h2 { font-size: .95rem; letter-spacing: -.025em; font-weight: 800; }
-.kiosk-section-title > span { color: var(--kiosk-muted); font-size: .75rem; }
-.kiosk-map {
+.kiosk-workflow {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--kiosk-line);
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 4px 16px #2548aa04;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+.kiosk-workflow-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.kiosk-workflow-heading h2 { font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; }
+.kiosk-workflow-heading > span { color: var(--kiosk-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.kiosk-workflow-steps {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   list-style: none;
   padding: 0;
-  margin: 7px 0 0;
+  margin: 14px 0 0;
 }
-.kiosk-map li { position: relative; min-width: 0; }
-.kiosk-map li:not(:last-child)::after { position: absolute; content: ''; top: 17px; width: 50%; height: 1px; right: -27%; background: #c5cfe7; }
-.kiosk-map button {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.kiosk-workflow-steps li { min-width: 0; }
+.kiosk-workflow-steps button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
   align-items: center;
   width: 100%;
-  min-height: 56px;
-  padding: 2px;
-  color: #63708b;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: transparent;
-  font-size: .875rem;
-  font-weight: 650;
+  height: 100%;
+  min-height: 50px;
+  padding: 9px 10px;
+  color: #4e5c72;
+  border: 1px solid #e1e6f0;
+  border-radius: 10px;
+  background: #f8faff;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-align: left;
 }
-.kiosk-map-icon { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #c5cfe7; border-radius: 9px; background: #f6f8ff; }
-.kiosk-map-icon svg { width: 16px; height: 16px; }
-.kiosk-map button:hover,
-.kiosk-map button[aria-pressed='true'] { border-color: #bccbff; background: #e8eeff7a; }
-.kiosk-map [data-active='true'] .kiosk-map-icon { background: var(--kiosk-blue); color: white; border-color: var(--kiosk-blue); box-shadow: 0 0 0 3px #164dff0d; }
-.kiosk-map [data-active='true'] button { color: var(--kiosk-blue); }
-.kiosk-map [data-reached='true'] .kiosk-map-icon { border-color: #9bb2ff; color: var(--kiosk-blue); }
-.kiosk-step-done { position: absolute; top: 1px; right: 8px; padding: 1px; border-radius: 50%; color: var(--kiosk-blue); background: #f7f8fd; }
-.kiosk-map-detail { min-height: 49px; margin-top: 5px; padding: 2px 8px; border-left: 2px solid #b4c5ff; font-size: .8125rem; }
-.kiosk-map-detail strong { font-size: .875rem; }
-.kiosk-map-detail p,
-.kiosk-map-detail small { color: var(--kiosk-muted); line-height: 1.35; }
-.kiosk-map-detail small { display: inline-block; margin-top: 2px; }
+.kiosk-workflow-number { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: #526078; background: #e9edf6; font-size: .875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kiosk-workflow-steps [data-state='complete'] button { color: #2448bd; background: #f2f5ff; border-color: #d8e2ff; }
+.kiosk-workflow-steps [data-state='complete'] .kiosk-workflow-number { color: #2448bd; background: #e2eaff; }
+.kiosk-workflow-steps button:not([aria-current]):hover,
+.kiosk-workflow-steps button:not([aria-current])[aria-pressed='true'] { border-color: #9bb2ff; background: #eef3ff; }
+.kiosk-workflow-steps [data-state='active'] button { color: #fff; background: var(--kiosk-blue); border-color: var(--kiosk-blue); font-weight: 700; box-shadow: 0 3px 10px #164dff20; }
+.kiosk-workflow-steps [data-state='active'] .kiosk-workflow-number { color: #fff; background: #ffffff26; }
+.kiosk-workflow-detail { min-height: 38px; margin-top: 12px; color: var(--kiosk-muted); font-size: .875rem; }
+.kiosk-workflow-detail p { line-height: 1.4; }
+.kiosk-workflow-detail small { display: block; margin-top: 3px; font-size: .8125rem; }
 .kiosk-printing-status { display: flex; align-items: center; gap: 10px; margin-top: 9px; padding: 8px 11px; border: 1px solid #c5d2f7; border-radius: 13px; background: #f0f4ff; }
 .kiosk-printing-status > div { flex: 1; min-width: 0; }
 .kiosk-printing-status strong { font-size: .94rem; }
@@ -321,12 +301,6 @@
 }
 @media (max-width: 730px) {
   .kiosk-display { padding: 18px; }
-  .kiosk-top { padding-inline: 0; }
-  .kiosk-brand { gap: 9px; }
-  .kiosk-brand > span { flex-basis: 40px; height: 40px; }
-  .kiosk-brand strong { font-size: .95rem; }
-  .kiosk-brand small { font-size: .75rem; }
-  .kiosk-fullscreen { padding-inline: 9px; font-size: .8rem; }
   .kiosk-content { grid-template-columns: 1fr; gap: 25px; padding-block: 12px; }
   .kiosk-copy h1 { font-size: clamp(2.5rem, 9vw, 4rem); }
   .kiosk-copy h1 br { display: none; }
@@ -336,14 +310,16 @@
   .kiosk-qr-frame { width: min(calc(100% - 50px), 260px); }
   .kiosk-payment-card .kiosk-qr-frame { width: min(calc(100% - 60px), 260px); }
   .kiosk-foot { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .kiosk-controls { justify-content: space-between; flex-wrap: wrap; width: 100%; gap: 10px; }
+  .kiosk-workflow-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-height: 740px) and (min-width: 731px) {
   .kiosk-display { padding-block: 13px; gap: 10px; }
-  .kiosk-top { min-height: 58px; padding-bottom: 11px; }
   .kiosk-copy h1 { font-size: 3.65rem; }
   .kiosk-lede { font-size: 1.05rem; margin-top: 10px; }
   .kiosk-artwork-wrap { height: 95px; }
   .kiosk-status { margin-top: 5px; padding-block: 8px; min-height: 65px; }
-  .kiosk-journey { margin-top: 10px; }
+  .kiosk-workflow { margin-top: 10px; padding: 14px; }
+  .kiosk-workflow-steps { margin-top: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .kiosk-status-inner { animation: none; } }

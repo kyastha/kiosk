@@ -40,21 +40,27 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   await page.goto('/kiosk');
   await monitorSocket;
   const qr = page.getByRole('img', { name: 'Scan this QR code to start printing' });
-  const map = page.getByRole('list', { name: 'Print journey' });
+  const workflow = page.getByRole('list', { name: 'Print workflow' });
   await expect(qr).toBeVisible();
   await expect.poll(() => qr.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   await expect(page.getByRole('heading', { name: 'Phone connected' })).toBeVisible();
   await expect(page.getByText('Live updates', { exact: true })).toBeVisible();
-  await map.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('header')).toHaveCount(0);
+  await expect(page.getByText('Your print journey', { exact: true })).toHaveCount(0);
+  await expect(workflow.locator('.kiosk-workflow-number')).toHaveText(['1', '2', '3', '4', '5', '6']);
+  await expect(page.getByText('Step 1 of 6', { exact: true })).toBeVisible();
+  await workflow.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Step details' })).toContainText('Preview each file');
-  await expect(map.locator('[aria-current="step"]')).toContainText('Scan');
+  await expect(workflow.locator('[aria-current="step"]')).toContainText('Scan');
   if (await page.evaluate(() => document.fullscreenEnabled)) {
     await page.getByRole('button', { name: 'Fullscreen', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Exit fullscreen' })).toBeVisible();
     await page.getByRole('button', { name: 'Exit fullscreen' }).click();
   }
+  await page.screenshot({ path: info.outputPath('kiosk-workflow-1366.png') });
 
   const phone = await context.newPage();
+  await phone.bringToFront();
   const config = await (await phone.request.get('/api/config')).json();
   expect(new URL(config.onboardingUrl).searchParams.get('kiosk')).toBe('1');
   const onboarding = new URL(config.onboardingUrl);
@@ -74,14 +80,15 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
     name: 'private-kiosk-fixture.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()),
   });
   await expect(page.getByRole('heading', { name: 'Choosing files' })).toBeVisible();
-  await expect(map.locator('[aria-current="step"]')).toContainText('Files');
+  await expect(workflow.locator('[aria-current="step"]')).toContainText('Files');
+  await expect(page.getByRole('region', { name: 'Step details' })).toContainText('Enter your name');
   await phone.getByRole('button', { name: 'Preview document' }).click();
   await expect(phone.getByRole('img', { name: 'Preview of page 1' })).toBeVisible();
-  await expect(map.locator('[aria-current="step"]')).toContainText('Settings');
+  await expect(workflow.locator('[aria-current="step"]')).toContainText('Settings');
   await phone.getByRole('button', { name: 'Review order' }).click();
   await expect(page.getByRole('heading', { name: 'Checkout in progress' })).toBeVisible();
   await phone.getByRole('button', { name: 'Edit settings' }).click();
-  await expect(map.locator('[aria-current="step"]')).toContainText('Settings');
+  await expect(workflow.locator('[aria-current="step"]')).toContainText('Settings');
   await phone.getByRole('button', { name: 'Review order' }).click();
 
   await expect(page.getByRole('img', { name: 'Scan this QR code for the current test payment' })).toBeVisible();
@@ -91,9 +98,15 @@ test('laptop display tracks the phone journey, shows payment QR, then retains pr
   await expect.poll(() => paymentQr.evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   await expect(page.getByRole('region', { name: 'Order test payment QR' })).toContainText('NPR 5');
   await expect(qr).toHaveCount(0);
+  await expect(workflow.locator('[aria-current="step"]')).toContainText('Test payment');
+  await expect(page.getByText('Step 5 of 6', { exact: true })).toBeVisible();
   await expect(page.getByText('Private kiosk customer')).toHaveCount(0);
   await expect(page.getByText('private-kiosk-fixture.pdf')).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(768);
+  for (const [width, height] of [[1280, 720], [1366, 768]]) {
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
   await page.screenshot({ path: info.outputPath('kiosk-payment-1366.png') });
 
   const qrResponse = await context.request.get(await paymentQr.getAttribute('src'));

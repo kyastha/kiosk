@@ -19,7 +19,7 @@ Open [the kiosk](http://localhost:3000/) or [the administration dashboard](http:
 
 The local server also accepts [127.0.0.1 on port 3000](http://127.0.0.1:3000/). Use the address in PUBLIC_ORIGIN when accessing a deployed kiosk.
 
-On the 14-inch laptop display, open [the kiosk display](http://localhost:3000/kiosk) and select **Fullscreen**. Its interactive journey map follows scanning, file preparation, settings, review and payment. At checkout the payment QR replaces the access QR and shows the exact order total. The access QR returns after verified payment. After payment confirmation the screen welcomes the next customer while retaining a compact live print status. Open [the printing display](http://localhost:3000/printer) for a dedicated status view.
+On the 14-inch laptop display, open [the kiosk display](http://localhost:3000/kiosk) and select **Fullscreen** in the footer. The header-free screen has a boxed, numbered workflow that clearly highlights the current step through scanning, file preparation, settings, review and payment. At checkout the payment QR replaces the access QR and shows the exact order total. The access QR returns after verified payment. After payment confirmation the screen welcomes the next customer while retaining a compact live print status. Open [the printing display](http://localhost:3000/printer) for a dedicated status view.
 
 The payment simulator loads the amount from the order automatically. Enter the six-digit demo PIN shown on that test payment page and select Pay. Five incorrect PIN attempts lock that payment. A successful test payment releases one print job and one receipt. To scan from a separate phone, configure PUBLIC_ORIGIN to the HTTPS address reachable from the school network.
 
